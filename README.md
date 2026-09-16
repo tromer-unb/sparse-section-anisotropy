@@ -98,7 +98,9 @@ The real-rock workflow uses segmented `2500 x 2500 x 2500` uint8 binary volumes 
 
 ## Status
 
-This branch is a reproducibility-oriented restructuring of the original analysis workspace. The numerical provenance is being preserved independently of plotting code so that every manuscript claim can be traced from source data to derived table to figure.
+The reproducibility branch now preserves the recovered historical Figure 1--6 scripts, the Bentheimer/Edwards Brown validation pipeline, frozen manuscript CSV outputs, third-party data checksums, and a separate reusable inference API. The historical code is retained as provenance; portable wrappers and reusable modules are kept separate so auditability is not lost during cleanup.
+
+The remaining author-level task before submission is to reconcile the manuscript's broad synthetic benchmark description with the exact figure-specific settings recorded in `docs/DATA_PROVENANCE.md`.
 
 ## License
 

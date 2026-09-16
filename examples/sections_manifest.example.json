@@ -1,0 +1,24 @@
+{
+  "pixel_size": 2.25,
+  "length_unit": "um",
+  "pore_value": 0,
+  "theta_step_deg": 5.0,
+  "max_lag_pixels": 64,
+  "sections": [
+    {
+      "name": "a0-a1 section",
+      "path": "replace_with_xy_binary.tif",
+      "basis": [[1, 0], [0, 1], [0, 0]]
+    },
+    {
+      "name": "a0-a2 section",
+      "path": "replace_with_xz_binary.tif",
+      "basis": [[1, 0], [0, 0], [0, 1]]
+    },
+    {
+      "name": "a1-a2 section",
+      "path": "replace_with_yz_binary.tif",
+      "basis": [[0, 0], [1, 0], [0, 1]]
+    }
+  ]
+}

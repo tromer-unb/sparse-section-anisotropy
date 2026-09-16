@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Research-data safeguards
+*.raw
+*.raw.tar.bz2
+*.tar.bz2
+data/raw/
+data/cache/
+**/*_cache/
+*.npy
+.DS_Store

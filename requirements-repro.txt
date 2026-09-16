@@ -1,0 +1,6 @@
+# Environment observed on the audit workstation (2026-09-16)
+numpy==2.3.2
+scipy==1.16.0
+matplotlib==3.10.3
+pandas==2.3.1
+Pillow==10.2.0

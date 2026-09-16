@@ -1,0 +1,45 @@
+{
+  "dataset": {
+    "title": "Full scale, microscopically resolved tomographies of sandstone and carbonate rocks augmented by experimental porosity and permeability values",
+    "figshare_article_id": 21375565,
+    "version": 6,
+    "doi": "10.25452/figshare.plus.21375565.v6",
+    "metadata_file": {
+      "name": "Dataset_Information.xlsx",
+      "file_id": 40168054
+    }
+  },
+  "common": {
+    "raw_shape": [
+      2500,
+      2500,
+      2500
+    ],
+    "dtype": "uint8",
+    "expected_uncompressed_bytes": 15625000000,
+    "voxel_size_um": 2.25,
+    "raw_phase_convention": {
+      "0": "pore",
+      "1": "solid"
+    },
+    "internal_pore_indicator": "chi = 1 - RAW"
+  },
+  "samples": [
+    {
+      "manuscript_label": "Bentheimer sandstone",
+      "dataset_sample": "Kocurek 15A",
+      "roi": 1,
+      "file_id": 38022670,
+      "archive": "kocurek_15a_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw.tar.bz2",
+      "raw": "kocurek_15a_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw"
+    },
+    {
+      "manuscript_label": "Edwards Brown carbonate",
+      "dataset_sample": "EdB-1",
+      "roi": 1,
+      "file_id": 38022599,
+      "archive": "edb-1_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw.tar.bz2",
+      "raw": "edb-1_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw"
+    }
+  ]
+}

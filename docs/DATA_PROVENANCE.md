@@ -36,10 +36,14 @@ These per-figure settings are the executable provenance of the archived plotting
 
 Figure 6 uses **real segmented micro-CT data**, not procedurally generated synthetic rock volumes.
 
+### Canonical source
+
+The source volumes are from Ferreira et al., *Full scale, microscopically resolved tomographies of sandstone and carbonate rocks augmented by experimental porosity and permeability values*, **Scientific Data 10, 368 (2023)**. The dataset is distributed through Figshare+ under DOI **10.25452/figshare.plus.21375565**. The downloader in `scripts/data/download_real_rocks.py` queries Figshare article ID `21375565` dynamically rather than hard-coding per-file download IDs.
+
 ### Local raw files used by the production workflow
 
-- Bentheimer sandstone: `kocurek_15a_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw`
-- Edwards Brown carbonate: `edb-1_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw`
+- Bentheimer sandstone (Kocurek 15A): `kocurek_15a_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw`
+- Edwards Brown carbonate (EdB-1): `edb-1_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw`
 
 The local dataset metadata identifies these as segmented binary cubes produced from filtered grayscale micro-CT cubes using a three-class Multi-Otsu segmentation workflow. The production scripts interpret the files as `uint8`, shape `(2500, 2500, 2500)`, at `2.25 micrometre` voxel spacing, with `0 = pore` and `1 = solid` in the validated analysis convention.
 

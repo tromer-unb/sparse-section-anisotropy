@@ -1,0 +1,30 @@
+FIGURE 6 — REAL-ROCK COMPARISON
+==============================================================================
+
+Inputs are FINAL validation CSVs; no heavy computation is repeated.
+Both rocks use 27 non-overlapping 512^3 spatial regions and the same
+frozen sparse-section protocol (3, 9, 15, 21 total sections).
+
+Bentheimer
+  porosity median/range: 21.944% / [18.580, 24.356]%
+  A_ref median/range:    1.2003 / [1.1044, 1.3173]
+  seed-level eta median: 0.992%
+  E_Q 3 -> 21 sections:  18.003% -> 6.320% (64.9% reduction)
+  representative slice:  G24 center=(2116, 2116, 384)
+
+Edwards Brown (EdB-1)
+  porosity median/range: 21.145% / [0.843, 34.931]%
+  A_ref median/range:    1.2534 / [1.0906, 3.0148]
+  seed-level eta median: 2.033%
+  E_Q 3 -> 21 sections:  38.843% -> 16.938% (56.4% reduction)
+  representative slice:  G19 center=(2116, 384, 1250)
+
+INTERPRETATION
+------------------------------------------------------------------------------
+Spatial replication reduces tensor reconstruction error and position
+sensitivity in both lithologies. The carbonate remains more difficult,
+consistent with its much stronger spatial heterogeneity and higher
+reference-model residual.
+The 1.706% p95 reference number is a Bentheimer calibration of the frozen
+50k x 5-seed protocol; it is not presented as an independent EdB-1
+uncertainty estimate.

@@ -84,6 +84,10 @@ python examples/infer_from_sections.py
 
 The example constructs a known SPD tensor, creates synthetic directional section measurements, and verifies that the six tensor components are recovered from multiple oriented planes. Replace those measurements with correlation lengths extracted from your own segmented 2D rock images to use the same inversion stage on experimental data.
 
+## Manuscript-code audit
+
+A claim-by-claim comparison between the manuscript and the recovered executable evidence is maintained in [`docs/MANUSCRIPT_CODE_AUDIT.md`](docs/MANUSCRIPT_CODE_AUDIT.md). Items that are not supported by the currently archived code are explicitly marked rather than silently reconciled.
+
 ## Reproducibility policy
 
 - Random seeds, section origins, section orientations, and reconstruction parameters must be stored with every generated result.

@@ -1,0 +1,2399 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsfonts}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{natbib}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xurl}
+
+\title{Beyond 2D-to-3D Reconstruction: Direct Inference of Pore-Space Anisotropy from Sparse Sections}
+\author{LCCMat UnB}
+\date{September 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Three-dimensional pore-space anisotropy is difficult to recover from sparse two-dimensional observations when the problem is posed as full microstructure reconstruction. Here, we instead infer a lower-dimensional structural descriptor directly from the available measurements by combining directional two-point correlation lengths into a symmetric positive-definite three-dimensional tensor. Measurements acquired on differently oriented sections are mapped into a common coordinate system and assembled into a single inverse problem, allowing the principal directions and characteristic correlation scales of the pore space to be estimated without reconstructing the underlying three-dimensional geometry. Controlled synthetic experiments show that the framework recovers blind principal orientations with a median axial error of $1.15^{\circ}$, obeys the expected rotational transformation behavior, and reveals a clear observability hierarchy in which one section provides rank 3, two complementary sections rank 5, and three suitably oriented sections rank 6. Robustness tests further show that finite field of view is more influential than dense angular sampling or the specific interpolation scheme used for oblique sections. The method was then validated, without lithology-specific retuning, on micro-CT data from Bentheimer sandstone and Edwards Brown carbonate using 27 non-overlapping $512^3$ subvolumes per rock. Increasing the total number of sections from 3 to 21 reduced the spatial median tensor-shape error from $18.00\%$ to $6.32\%$ in Bentheimer and from $38.84\%$ to $16.94\%$ in Edwards Brown, while the corresponding position-induced interquartile range decreased from $9.15$ to $2.63$ and from $26.83$ to $6.95$ percentage points, respectively. These results establish that orientation diversity and spatial replication play fundamentally different roles: the former controls geometric identifiability, whereas the latter controls statistical representativity. The remaining lithology-dependent error further indicates that reconstruction accuracy is ultimately limited by microstructural heterogeneity and by the adequacy of a second-order tensor representation. The proposed framework therefore shifts sparse-section characterization from complete three-dimensional geometry reconstruction to direct descriptor inference, providing a physically interpretable and computationally economical route for estimating three-dimensional structural anisotropy when full volumetric imaging is unavailable or unnecessary.
+\end{abstract}
+
+% ============================================================
+% INTRODUCTION
+% ============================================================
+
+\section{Introduction}
+\label{sec:introduction}
+
+Porous materials derive much of their macroscopic behavior not simply from how much void space they contain, but from how that void space is organized in three dimensions. Pore size, connectivity, tortuosity, spatial correlation, and preferential orientation jointly regulate transport and mechanical response across rocks, soils, biological tissues, catalysts, composites, and other heterogeneous materials \cite{Bear1972,Dullien1992,Torquato2002,Sahimi2011}. Among these descriptors, structural anisotropy is particularly important because directional organization of the pore space can produce strongly direction-dependent hydraulic, electrical, thermal, and mechanical responses even when scalar quantities such as porosity remain unchanged \cite{Cowin2004,Inglis2003,Gerke2019}. Quantifying pore-space anisotropy is therefore a fundamental component of the broader structure--property problem in heterogeneous media.
+
+Three-dimensional X-ray computed tomography has transformed this problem by allowing pore architectures to be visualized and interrogated directly at micrometre and sub-micrometre scales \cite{Wildenschild2013,Cnudde2013,Blunt2013}. Together with segmentation, direct numerical simulation, and pore-network extraction, volumetric imaging forms the basis of modern digital rock physics, in which experimentally imaged pore geometries are converted into computational domains for estimating effective properties and investigating pore-scale processes \cite{DongBlunt2009,Blunt2013,Mehmani2020,Sadeghnejad2021}. This paradigm has provided unprecedented access to the relation between microstructure and macroscopic response. Nevertheless, fully resolved three-dimensional characterization remains constrained by a persistent trade-off among field of view, spatial resolution, acquisition time, data volume, segmentation uncertainty, and computational cost \cite{Wildenschild2013,Cnudde2013,Mehmani2020}. These constraints become especially consequential in multiscale or strongly heterogeneous rocks, where a high-resolution image may resolve individual pores while failing to contain a statistically representative volume.
+
+The latter issue is not merely technical. The representative elementary volume (REV) required for a structural or physical observable depends on both the heterogeneity of the material and the quantity being estimated \cite{AlRaoush2010,Singh2020,Zubov2024}. A domain that is representative with respect to porosity need not be representative with respect to connectivity, permeability, topology, or a directional structural descriptor. Consequently, increasing image resolution does not necessarily solve the representativity problem; it can instead reduce the physical volume sampled. This tension between resolution and representativity remains one of the central limitations of image-based characterization and digital rock workflows \cite{Mehmani2020,Singh2020,Zubov2024}.
+
+Two-dimensional imaging offers a complementary experimental regime. Thin sections, polished surfaces, microscopy images, and planar tomographic cuts can frequently be acquired over larger fields of view, at higher spatial resolution, or with considerably lower experimental and computational cost than complete three-dimensional volumes. This has motivated a long history of methods that seek to infer three-dimensional microstructure from limited planar information. Early stochastic approaches reconstructed heterogeneous media by matching low-order correlation functions \cite{Roberts1997,Yeong1998,Jiao2007,Jiao2008}; multiple-point statistical methods subsequently incorporated richer spatial patterns extracted from training images \cite{Okabe2005,Tahmasebi2012}; and more recent machine-learning and generative approaches have learned implicit microstructural distributions capable of producing statistically similar three-dimensional realizations \cite{Bostanabad2016,Bostanabad2018,Mosser2017,Feng2019,Feng2020,Zhang2022}. These developments demonstrate the substantial information contained in two-dimensional observations, but they also emphasize the intrinsic difficulty of the inverse problem: many distinct three-dimensional structures can be consistent with the same planar statistics.
+
+This non-uniqueness is fundamental rather than algorithmic. Even complete knowledge of the two-point correlation function does not, in general, uniquely specify a two-phase heterogeneous material \cite{Jiao2007}. Three-dimensional reconstruction from one or a few sections therefore requires additional assumptions concerning stationarity, isotropy, higher-order statistics, training distributions, geological process, or structural priors \cite{Okabe2005,Tahmasebi2012,Bostanabad2018}. For many characterization problems, however, reconstructing every voxel of an unobserved volume may be unnecessary. If the scientific quantity of interest is a lower-dimensional structural descriptor, a more direct strategy is to infer that descriptor from the measurements themselves rather than first solving the substantially harder problem of generating a complete three-dimensional microstructure.
+
+Structural anisotropy provides a natural setting for such an approach. Direction-dependent pore architecture has long been represented through second-order fabric tensors, whose eigenvectors identify principal structural directions and whose eigenvalues quantify the associated degree of anisotropy \cite{Kanatani1985,Inglis2003,Cowin2004,Tabor2012}. Classical stereological methods such as mean intercept length demonstrate that three-dimensional fabric information can, under suitable assumptions, be inferred from measurements performed on multiple two-dimensional planes \cite{Kanatani1985,Inglis2003}. Related work has used directional functions and autocorrelation information measured on coordinate sections to characterize and simulate anisotropic soil microstructures \cite{MasadMuhunthan2000}. These studies establish an important precedent: directional information distributed across several planar observations can constrain a compact three-dimensional fabric representation.
+
+At the same time, spatial correlation provides information that is complementary to purely orientation- or intercept-based measures. Two-point correlation functions are among the fundamental descriptors of heterogeneous media and quantify the probability structure and characteristic spatial scales of a phase distribution \cite{Torquato2002,Jiao2007}. Directional correlation functions have been shown to improve the characterization and reconstruction of anisotropic porous structures \cite{Gerke2014}, while pore-scale correlation lengths can influence representative scales and transport behavior \cite{Singh2020,Zubov2024}. A directional correlation length therefore supplies a physically interpretable measure of how far pore-space organization persists along a given direction. Yet the possibility of assembling such measurements from sparse, arbitrarily oriented two-dimensional sections into a coordinate-consistent three-dimensional correlation tensor has received substantially less attention than either full volumetric characterization or stochastic 2D-to-3D reconstruction.
+
+Here, we formulate this problem as a direct tensor-inference problem. For a unit direction $\mathbf{u}$, we extract a characteristic correlation length $\ell(\mathbf{u})$ from the directional two-point autocorrelation of the binary pore indicator and represent its angular dependence through the symmetric positive-definite quadratic form
+%
+\begin{equation}
+    \ell^{-2}(\mathbf{u})
+    =
+    \mathbf{u}^{\mathsf T}\mathbf{Q}\mathbf{u},
+    \label{eq:intro_tensor}
+\end{equation}
+%
+where $\mathbf{Q}$ defines a correlation-length fabric tensor. The eigenvectors of $\mathbf{Q}$ specify the principal directions of the second-order pore-space structure, while its eigenvalues determine the corresponding principal correlation scales. Crucially, a direction measured within an oriented two-dimensional section is mapped into the common three-dimensional coordinate system through the section basis. Each section therefore supplies a restriction of the same ambient quadratic form rather than an independent planar anisotropy descriptor. This construction allows complementary planar observations to be combined directly without generating an intermediate three-dimensional pore image.
+
+The formulation separates two experimental requirements that are often conflated. The first is \emph{observability}: section orientations must provide a sufficiently diverse set of directional constraints to identify the six independent components of a symmetric three-dimensional tensor. The second is \emph{representativity}: the sampled sections must contain sufficient independent microstructural information for the inferred tensor to represent the surrounding material rather than the particular local cuts that were observed. Orientation diversity and spatial replication therefore play fundamentally different roles. The former determines the rank and conditioning of the inverse problem; the latter controls finite-sampling fluctuations arising from heterogeneous pore architecture. This separation provides a direct connection between tensor identifiability and the classical REV problem.
+
+We test these hypotheses through a hierarchy of increasingly demanding experiments. Controlled synthetic porous media are first used to establish in-plane detectability, blind recovery of principal orientation, rotational covariance, three-dimensional observability, conditioning, and robustness to porosity, anisotropy magnitude, angular sampling, interpolation, and finite field of view. The framework is then transferred without lithology-specific retuning to experimentally acquired micro-CT data from Bentheimer sandstone and Edwards Brown carbonate \cite{Ferreira2023}. The latter dataset provides standardized, microscopically resolved $2500^3$-voxel binary regions from real sandstone and carbonate plugs, together with independent petrophysical characterization. Across spatially replicated subvolumes, these two lithologies provide contrasting tests ranging from comparatively homogeneous intergranular porosity to strongly heterogeneous carbonate pore architecture.
+
+The resulting picture is consistent across synthetic and natural media. Complementary section orientations establish tensor observability, but minimal observability alone does not ensure accurate recovery. Increasing spatial replication systematically reduces both reconstruction error and sensitivity to section position, while the attainable accuracy remains strongly dependent on microstructural heterogeneity and on how adequately the directional response can be represented by a single second-order tensor. The method therefore does not eliminate the representative-volume problem and does not attempt to infer higher-order topology or transport properties that are not supported by the measured statistics. Instead, it converts sparse planar observations into a well-defined three-dimensional structural tensor and makes the distinction between geometric identifiability, statistical representativity, and model adequacy explicit.
+
+The principal contribution of this work is thus not another stochastic reconstruction of an unobserved three-dimensional pore space. It is a lower-dimensional, coordinate-consistent inverse description of its directional structure. By combining directional correlation statistics, tensor transformation, observability analysis, and spatial convergence, the proposed framework provides a route for extracting three-dimensional structural anisotropy when full-volume imaging is unavailable, impractical, or unnecessary. More broadly, it suggests that sparse-section characterization should be formulated according to the dimensionality of the physical descriptor sought: when the target is a tensor rather than a complete geometry, directly reconstructing the tensor can be both more identifiable and more experimentally economical than reconstructing the volume from which that tensor would subsequently be calculated.
+% ============================================================================
+% Manuscript-ready Methods section
+% Suggested packages:
+
+% ============================================================================
+
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Study design and methodological objective}
+\label{subsec:study_design}
+
+The objective of the proposed framework is to recover a three-dimensional
+(3D) tensorial descriptor of pore-space anisotropy directly from a sparse set
+of oriented two-dimensional (2D) sections, without reconstructing the full
+3D pore geometry. The method is based on the directional spatial
+autocorrelation of a binary pore indicator field. Direction-dependent
+correlation lengths are represented by a symmetric positive-definite (SPD)
+quadratic form, herein denoted the \emph{pore-correlation tensor}.
+The central geometric assumption is that the tensor estimated within an
+oriented 2D section is the restriction of a common 3D tensor to the tangent
+plane of that section. This restriction law enables the 3D tensor to be
+recovered through a low-dimensional inverse problem.
+
+The methodology was evaluated in three successive stages. First, synthetic
+porous media were used to establish rotation equivariance, anisotropy
+sensitivity, and the identifiability of the inverse problem under controlled
+conditions. Second, the dependence of reconstruction accuracy on the number
+and orientation of available sections was quantified. Third, the method was
+validated on segmented micro-computed-tomography (micro-CT) images of real
+rocks, for which the complete 3D volume was retained exclusively as ground
+truth while the inversion algorithm received only sparse virtual sections.
+No 3D voxel reconstruction, machine-learning model, or sample-to-sample
+training was used at any stage.
+
+\subsection{Binary representation of the pore space}
+\label{subsec:pore_indicator}
+
+Let $\Omega\subset\mathbb{R}^{3}$ denote a rock volume and let
+\begin{equation}
+    \chi(\bm{x}) =
+    \begin{cases}
+        1, & \bm{x}\in\Omega_{p},\\
+        0, & \bm{x}\in\Omega_{s},
+    \end{cases}
+    \label{eq:pore_indicator}
+\end{equation}
+be the binary pore indicator, where $\Omega_{p}$ and $\Omega_{s}$ denote
+the pore and solid phases, respectively. The volumetric porosity is
+\begin{equation}
+    \phi =
+    \frac{1}{|\Omega|}
+    \int_{\Omega}\chi(\bm{x})\,\mathrm{d}\bm{x}.
+    \label{eq:porosity}
+\end{equation}
+For discrete images, Eq.~\eqref{eq:porosity} reduces to the arithmetic mean
+of the binary voxel values.
+
+An oriented section $S_s$ was parameterized by an origin
+$\bm{x}_{s}\in\Omega$ and an orthonormal basis
+$\bm{B}_{s}=[\bm{b}_{s1}\ \bm{b}_{s2}]\in\mathbb{R}^{3\times2}$ satisfying
+$\bm{B}_{s}^{\mathsf T}\bm{B}_{s}=\bm{I}_{2}$. Coordinates
+$\bm{\xi}=(\xi_{1},\xi_{2})^{\mathsf T}$ within the section are mapped into
+the 3D volume by
+\begin{equation}
+    \iota_{s}(\bm{\xi})
+    =
+    \bm{x}_{s}
+    +
+    \bm{B}_{s}\bm{\xi}.
+    \label{eq:section_embedding}
+\end{equation}
+The corresponding binary section image is therefore
+\begin{equation}
+    \chi_{s}(\bm{\xi})
+    =
+    \chi\!\left(\iota_{s}(\bm{\xi})\right).
+    \label{eq:section_indicator}
+\end{equation}
+For voxelized volumes, oblique sections were sampled at the native voxel
+spacing using trilinear interpolation of the indicator field followed by a
+threshold of $0.5$. Nearest-neighbour sampling was retained as a sensitivity
+analysis to quantify discretization-induced bias.
+
+\subsection{Directional spatial autocorrelation}
+\label{subsec:directional_acf}
+
+For a 2D section, define the centered pore-indicator field
+\begin{equation}
+    f(\bm{x})=\chi(\bm{x})-\phi.
+    \label{eq:centered_indicator}
+\end{equation}
+For a unit in-plane direction $\bm{u}$ and separation distance $r\geq0$, the
+normalized directional autocorrelation is
+\begin{equation}
+    C(\bm{u},r)
+    =
+    \frac{
+    \left\langle
+        f(\bm{x})f(\bm{x}+r\bm{u})
+    \right\rangle_{\bm{x}\in\Omega_{r,\bm{u}}}
+    }{
+    \left\langle
+        f(\bm{x})^{2}
+    \right\rangle_{\bm{x}\in\Omega}
+    },
+    \label{eq:directional_acf}
+\end{equation}
+where $\Omega_{r,\bm{u}}$ contains only locations for which both members of
+the pair remain inside the sampled section. Consequently,
+$C(\bm{u},0)=1$.
+
+The production 2D estimator used finite-domain FFT convolution with explicit
+overlap normalization. If $m$ denotes a binary support mask, the discrete
+autocovariance at displacement $\bm{r}$ was evaluated as
+\begin{equation}
+    \gamma(\bm{r})
+    =
+    \frac{
+    \mathcal{F}^{-1}
+    \left[
+        |\mathcal{F}(f)|^{2}
+    \right](\bm{r})
+    }{
+    \mathcal{F}^{-1}
+    \left[
+        |\mathcal{F}(m)|^{2}
+    \right](\bm{r})
+    },
+    \label{eq:fft_covariance}
+\end{equation}
+followed by $C(\bm{r})=\gamma(\bm{r})/\gamma(\bm{0})$. Directional curves
+were sampled from the resulting 2D correlation field by linear interpolation.
+
+Unless otherwise stated, in-plane directions were sampled over
+$\theta\in[0,\pi)$ at an angular increment of $5^{\circ}$, with
+\begin{equation}
+    \bm{u}(\theta)
+    =
+    \begin{bmatrix}
+        \cos\theta\\
+        \sin\theta
+    \end{bmatrix}.
+    \label{eq:2d_direction}
+\end{equation}
+Because the autocorrelation is antipodally symmetric,
+$C(\bm{u},r)=C(-\bm{u},r)$, sampling over $[0,\pi)$ spans the complete
+in-plane directional information. The real-rock 3D reference tensor was not
+computed from a full 3D FFT field; it used direct directional Monte Carlo
+sampling as described in Sec.~\ref{subsec:real_rocks} and in the
+Supplementary Information.
+
+\subsection{Directional correlation length}
+\label{subsec:correlation_length}
+
+A characteristic directional correlation length was defined from the first
+$1/e$ crossing of the normalized autocorrelation,
+\begin{equation}
+    \ell(\bm{u})
+    =
+    \inf
+    \left\{
+        r>0:
+        C(\bm{u},r)
+        \leq e^{-1}
+    \right\}.
+    \label{eq:correlation_length}
+\end{equation}
+The crossing position was linearly interpolated between the two neighboring
+sampled lags. Each production script imposed an explicit maximum lag, and
+directions for which no $1/e$ crossing occurred within that observed window
+were marked unavailable rather than extrapolated.
+
+The final synthetic figure scripts used maximum lags of 28 pixels
+(Figs.~2 and 4), 42 pixels (Fig.~3), and 32 pixels (Fig.~5).
+The real-rock workflow used a maximum lag of 48 voxels, corresponding to
+approximately $108~\mu$m at the $2.25~\mu$m voxel size. Tensor fitting was
+performed in pixel or voxel units. Physical units were applied when reporting
+or visualizing absolute correlation scales; determinant-normalized tensor-shape
+and anisotropy measures are invariant to a uniform length-unit conversion.
+
+\subsection{Section-level pore-correlation tensor}
+\label{subsec:section_tensor}
+
+The directional correlation-length response within an individual section
+was represented by an SPD tensor
+$\bm{Q}_{s}\in\mathbb{S}_{++}^{2}$ through
+\begin{equation}
+    \frac{1}{\ell_{s}(\bm{u})^{2}}
+    =
+    \bm{u}^{\mathsf T}
+    \bm{Q}_{s}
+    \bm{u}.
+    \label{eq:section_quadratic_form}
+\end{equation}
+For
+\begin{equation}
+    \bm{Q}_{s}
+    =
+    \begin{bmatrix}
+        q_{11} & q_{12}\\
+        q_{12} & q_{22}
+    \end{bmatrix},
+    \label{eq:q2d}
+\end{equation}
+Eq.~\eqref{eq:section_quadratic_form} becomes
+\begin{equation}
+    \ell_{s}(\theta)^{-2}
+    =
+    q_{11}\cos^{2}\theta
+    +
+    2q_{12}\sin\theta\cos\theta
+    +
+    q_{22}\sin^{2}\theta.
+    \label{eq:q2d_expanded}
+\end{equation}
+
+In the frozen production implementation, all valid directional observations
+were assigned unit weight. The three independent coefficients were first
+estimated by ordinary least squares,
+\begin{equation}
+    \bm{Q}_{s}^{\mathrm{LS}}
+    =
+    \underset{\bm{Q}=\bm{Q}^{\mathsf T}}{\operatorname{arg\,min}}
+    \sum_{j=1}^{N_{\theta}}
+    \left[
+        \ell_{sj}^{-2}
+        -
+        \bm{u}_{j}^{\mathsf T}
+        \bm{Q}
+        \bm{u}_{j}
+    \right]^{2}.
+    \label{eq:q2d_fit}
+\end{equation}
+The fitted symmetric matrix was then projected onto the SPD cone by
+eigendecomposition and flooring non-positive or numerically negligible
+eigenvalues,
+\begin{equation}
+    \widehat{\bm{Q}}_{s}
+    =
+    \operatorname{SPD}
+    \left(
+        \bm{Q}_{s}^{\mathrm{LS}}
+    \right).
+\end{equation}
+
+Let $\lambda_{s,1}\leq\lambda_{s,2}$ be the eigenvalues of
+$\widehat{\bm{Q}}_{s}$. The corresponding principal correlation lengths are
+\begin{equation}
+    \ell_{s,i}
+    =
+    \lambda_{s,i}^{-1/2},
+    \label{eq:principal_lengths_2d}
+\end{equation}
+and the section anisotropy ratio is
+\begin{equation}
+    A_{s}
+    =
+    \frac{\ell_{s,\max}}{\ell_{s,\min}}
+    =
+    \sqrt{
+        \frac{\lambda_{s,\max}}{\lambda_{s,\min}}
+    }.
+    \label{eq:anisotropy_2d}
+\end{equation}
+The eigenvectors of $\widehat{\bm{Q}}_{s}$ define the in-plane principal
+directions.
+
+\subsection{Tensorial adequacy and non-tensorial residual}
+\label{subsec:nontensoriality}
+
+A second-order tensor is a parsimonious approximation and need not reproduce
+arbitrarily complex, multimodal, or multiscale directional structures.
+Accordingly, model adequacy was quantified explicitly rather than assumed.
+For each section, the tensor-predicted length is
+\begin{equation}
+    \ell_{Q}(\bm{u})
+    =
+    \left(
+        \bm{u}^{\mathsf T}
+        \widehat{\bm{Q}}_{s}
+        \bm{u}
+    \right)^{-1/2}.
+    \label{eq:tensor_predicted_length}
+\end{equation}
+With the unit weights used in the production calculations, the dimensionless
+non-tensoriality residual was
+\begin{equation}
+    \eta_{s}
+    =
+    \left[
+    \frac{
+        \sum_{j}
+        \left(
+            \ell_{sj}-\ell_{Q}(\bm{u}_{j})
+        \right)^{2}
+    }{
+        \sum_{j}\ell_{sj}^{2}
+    }
+    \right]^{1/2}.
+    \label{eq:nontensoriality}
+\end{equation}
+Small $\eta_{s}$ indicates that the angular response is well represented by
+a quadratic form, whereas a large value identifies microstructures for which
+a single second-order tensor is insufficient.
+
+\subsection{Geometric restriction of a 3D tensor to an oriented section}
+\label{subsec:restriction_law}
+
+Let $\bm{Q}_{3}\in\mathbb{S}_{++}^{3}$ denote the unknown 3D
+pore-correlation tensor. A unit direction $\bm{u}\in\mathbb{R}^{2}$ in
+section coordinates corresponds to the ambient 3D direction
+\begin{equation}
+    \bm{v}
+    =
+    \bm{B}_{s}\bm{u}.
+    \label{eq:ambient_direction}
+\end{equation}
+The 3D quadratic model gives
+\begin{equation}
+    \ell(\bm{v})^{-2}
+    =
+    \bm{v}^{\mathsf T}
+    \bm{Q}_{3}
+    \bm{v}.
+    \label{eq:q3d_direction}
+\end{equation}
+Substituting Eq.~\eqref{eq:ambient_direction} into
+Eq.~\eqref{eq:q3d_direction} yields
+\begin{equation}
+    \ell(\bm{u})^{-2}
+    =
+    \bm{u}^{\mathsf T}
+    \left(
+        \bm{B}_{s}^{\mathsf T}
+        \bm{Q}_{3}
+        \bm{B}_{s}
+    \right)
+    \bm{u}.
+    \label{eq:restriction_derivation}
+\end{equation}
+Hence, the tensor observed in an oriented 2D section satisfies the restriction
+law
+\begin{equation}
+    \boxed{
+    \bm{Q}_{s}
+    =
+    \bm{B}_{s}^{\mathsf T}
+    \bm{Q}_{3}
+    \bm{B}_{s}.
+    }
+    \label{eq:restriction_law}
+\end{equation}
+Equation~\eqref{eq:restriction_law} is the central geometric relation of the
+method. In differential-geometric language, it is the pullback of the
+ambient quadratic form to the tangent plane of the section. It also makes
+explicit which components of the 3D anisotropy are observable from a given
+section orientation.
+
+\subsection{Direct recovery of the 3D pore-correlation tensor}
+\label{subsec:q3d_recovery}
+
+Although Eq.~\eqref{eq:restriction_law} allows a two-stage inversion using
+independently fitted section tensors, the production estimator used all
+available directional measurements simultaneously. For section $s$ and
+in-plane direction $j$, define
+\begin{equation}
+    \bm{v}_{sj}
+    =
+    \bm{B}_{s}\bm{u}_{sj},
+    \qquad
+    y_{sj}
+    =
+    \ell_{sj}^{-2}.
+    \label{eq:global_observations}
+\end{equation}
+The unconstrained symmetric least-squares estimate was
+\begin{equation}
+    \bm{Q}_{3}^{\mathrm{LS}}
+    =
+    \underset{\bm{Q}=\bm{Q}^{\mathsf T}}{\operatorname{arg\,min}}
+    \sum_{s=1}^{N_{S}}
+    \sum_{j}
+    \left[
+        y_{sj}
+        -
+        \bm{v}_{sj}^{\mathsf T}
+        \bm{Q}
+        \bm{v}_{sj}
+    \right]^{2},
+    \label{eq:q3d_fit}
+\end{equation}
+followed by the same positive-definite projection,
+\begin{equation}
+    \widehat{\bm{Q}}_{3}
+    =
+    \operatorname{SPD}
+    \left(
+        \bm{Q}_{3}^{\mathrm{LS}}
+    \right).
+\end{equation}
+
+For a symmetric tensor
+\begin{equation}
+    \bm{Q}_{3}
+    =
+    \begin{bmatrix}
+    q_{xx} & q_{xy} & q_{xz}\\
+    q_{xy} & q_{yy} & q_{yz}\\
+    q_{xz} & q_{yz} & q_{zz}
+    \end{bmatrix},
+    \label{eq:q3d_matrix}
+\end{equation}
+each directional observation is linear in the six independent tensor
+components:
+\begin{equation}
+    y
+    =
+    \begin{bmatrix}
+    v_x^2 &
+    v_y^2 &
+    v_z^2 &
+    2v_xv_y &
+    2v_xv_z &
+    2v_yv_z
+    \end{bmatrix}
+    \begin{bmatrix}
+    q_{xx}\\
+    q_{yy}\\
+    q_{zz}\\
+    q_{xy}\\
+    q_{xz}\\
+    q_{yz}
+    \end{bmatrix}
+    +
+    \epsilon_y.
+    \label{eq:linear_design}
+\end{equation}
+Thus the production reconstruction is a six-parameter linear least-squares
+problem followed by SPD projection.
+
+Let $\lambda_{1}\leq\lambda_{2}\leq\lambda_{3}$ be the eigenvalues of
+$\widehat{\bm{Q}}_{3}$, with corresponding orthonormal eigenvectors
+$\bm{e}_{1},\bm{e}_{2},\bm{e}_{3}$. The principal 3D correlation lengths are
+\begin{equation}
+    \ell_{i}
+    =
+    \lambda_{i}^{-1/2},
+    \label{eq:principal_lengths_3d}
+\end{equation}
+and the 3D anisotropy ratio is
+\begin{equation}
+    A_{3}
+    =
+    \frac{\ell_{\max}}{\ell_{\min}}
+    =
+    \sqrt{
+        \frac{\lambda_{\max}}{\lambda_{\min}}
+    }.
+    \label{eq:anisotropy_3d}
+\end{equation}
+To separate anisotropy shape from absolute spatial scale, a
+determinant-normalized tensor was defined as
+\begin{equation}
+    \widetilde{\bm{Q}}_{3}
+    =
+    \frac{
+        \widehat{\bm{Q}}_{3}
+    }{
+        \det(\widehat{\bm{Q}}_{3})^{1/3}
+    },
+    \qquad
+    \det(\widetilde{\bm{Q}}_{3})=1.
+    \label{eq:normalized_tensor}
+\end{equation}
+The geometric-mean correlation length is
+\begin{equation}
+    \ell_{g}
+    =
+    \det(\widehat{\bm{Q}}_{3})^{-1/6}.
+    \label{eq:geometric_mean_length}
+\end{equation}
+
+\subsection{Observability and section-orientation design}
+\label{subsec:observability}
+
+The six independent components of $\bm{Q}_{3}$ are identifiable only if the
+aggregate directional design matrix in Eq.~\eqref{eq:linear_design} has rank
+six. A single section can constrain at most the three independent components
+of a symmetric $2\times2$ restriction. Two distinct planes remain
+insufficient for generic recovery because their intersection shares one
+directional constraint, leaving one 3D cross-term unobserved. Three
+appropriately oriented sections can provide full rank.
+
+Because the production estimator used unit weights, observability was
+quantified directly from the unweighted design matrix $\bm{A}$:
+\begin{equation}
+    \mathcal{O}
+    =
+    \sigma_{\min}
+    \left(
+        \bm{A}
+    \right),
+    \label{eq:observability}
+\end{equation}
+and the condition number
+\begin{equation}
+    \kappa
+    =
+    \frac{
+        \sigma_{\max}(\bm{A})
+    }{
+        \sigma_{\min}(\bm{A})
+    }
+    \label{eq:condition_number}
+\end{equation}
+was used as a diagnostic of geometric noise amplification.
+
+The minimal demonstrator used three mutually orthogonal sections. In the
+Fig.~4 conditioning experiment, a pool of 20 independently oriented sections
+from one controlled synthetic volume was measured once and subsets containing
+three to six sections were resampled; 220 accepted full-rank subsets were
+retained at each section count. The final real-rock experiment addressed a
+different question: it kept the three mutually orthogonal section families
+fixed and increased spatial replication within each family. No
+singular-value-maximizing orientation optimizer was used in the frozen
+production results.
+
+\subsection{Uncertainty and numerical precision}
+\label{subsec:uncertainty}
+
+The frozen production analysis separated three distinct sources of variability
+rather than assigning bootstrap-derived weights to individual directional
+measurements.
+
+For the controlled synthetic figures, variability was quantified across
+independently generated realizations or independently selected section subsets,
+with fixed random seeds recorded in the corresponding scripts.
+
+For the real-rock sparse reconstruction, section-position sensitivity was
+measured by repeatedly selecting offsets from a precomputed pool. Each
+$512^3$ subvolume contained 13 candidate offsets in each of three orthogonal
+section families. For each total section count (3, 9, 15, and 21), 200 random
+position configurations were evaluated per subvolume. The within-subvolume
+median and interquartile range therefore quantify sensitivity to where the
+sections are acquired, not independent geological replication.
+
+Numerical precision of the full-3D real-rock reference was calibrated
+separately on five Bentheimer subvolumes. Ten independent Monte Carlo seeds
+were evaluated at nested point counts of 3,000, 6,000, 12,000, 25,000, and
+50,000 points per direction. Consensus sizes of 1, 2, 3, 5, 7, and 10
+seed-specific tensors were then evaluated from the cached 50,000-point
+estimates. Three thousand bootstrap pairs were generated for each subvolume
+and consensus size. This calibration selected a five-seed consensus, whose
+pooled 95th-percentile single-consensus uncertainty proxy was approximately
+$1.706\%$. The value was calibrated on Bentheimer and was carried only as a
+numerical reference-precision benchmark; it was not subtracted from sparse
+reconstruction errors and was not interpreted as a universal
+lithology-independent uncertainty bound.
+
+\subsection{Synthetic porous-media benchmarks}
+\label{subsec:synthetic_benchmarks}
+
+Synthetic validation was organized as a sequence of figure-specific controlled
+experiments rather than one uniform volume-size/realization grid.
+
+For the in-plane detectability experiment in Fig.~2, thresholded 3D Gaussian
+random fields of size $96^3$ voxels were generated at porosity $\phi=0.27$.
+The isotropic filter widths were $(4.8,4.8,4.8)$ voxels and the anisotropic
+widths were $(4.8,4.8,1.8)$ voxels. Twenty independent realizations were used
+for the ensemble comparison, with directional lengths sampled every
+$5^{\circ}$ up to a maximum lag of 28 pixels.
+
+The blind-orientation and rotation-equivariance experiment in Fig.~3 used
+2D anisotropic Gaussian random fields generated on a $256\times256$ parent
+canvas with Gaussian widths 2.1 and 6.0 pixels. After in-plane rotation, the
+central $160\times160$ region was analyzed to avoid corner-filling artifacts.
+Sixty independent blind-angle realizations were used for the orientation-error
+distribution, and 13 imposed angles were used for the explicit equivariance
+test.
+
+For the 3D observability experiment in Fig.~4, a stationary spectral Gaussian
+random field was generated on a $224^3$ periodic cube at porosity 0.27. The
+prescribed principal correlation scales were $(7.0,4.2,2.3)$ voxels and the
+principal frame was rotated by $(24^{\circ},37^{\circ},19^{\circ})$ about the
+Cartesian axes. Virtual sections had width 144 pixels. A pool of 20 oriented
+sections was measured, and subsets containing three, four, five, or six
+sections were used to evaluate rank, conditioning, and recovery accuracy.
+
+The robustness experiment in Fig.~5 used $128^3$ spectral Gaussian random
+fields for the main porosity--anisotropy benchmark. Porosities
+$\phi=0.15$, 0.25, and 0.35 and prescribed anisotropy ratios
+$A=1.0$, 1.5, 2.0, 3.0, and 4.0 were evaluated. For each anisotropy setting,
+12 independently generated fields with independently sampled rotations in
+$\mathrm{SO}(3)$ were used; the same continuous field realization was
+thresholded at the three target porosities. A separate $160^3$ benchmark at
+$\phi=0.25$ and $A=3.0$, with 10 independent realizations, tested finite
+section widths of 64--144 pixels, angular increments from $2.5^{\circ}$ to
+$30^{\circ}$, and nearest-neighbour versus trilinear-plus-threshold
+interpolation for oblique sections.
+
+For Figs.~4 and 5, the reference tensor shape was known by construction from
+the prescribed principal correlation scales and rotation:
+\begin{equation}
+    \bm{Q}_{3}^{\mathrm{ref}}
+    \propto
+    \bm{R}
+    \operatorname{diag}
+    \left(
+        L_1^{-2},L_2^{-2},L_3^{-2}
+    \right)
+    \bm{R}^{\mathsf T}.
+\end{equation}
+It was projected to SPD and determinant-normalized before shape comparisons.
+Thus the final synthetic production figures did not estimate their reference
+tensor from a full-volume 3D FFT.
+
+\subsection{Rotation-equivariance test}
+\label{subsec:rotation_equivariance}
+
+Rotation equivariance was tested explicitly for the 2D tensor in Fig.~3. If a
+binary section is actively rotated in-plane by
+$\bm{R}\in\mathrm{SO}(2)$, the fitted tensor should satisfy
+\begin{equation}
+    \bm{Q}_{2}^{\,\prime}
+    =
+    \bm{R}
+    \bm{Q}_{2}
+    \bm{R}^{\mathsf T}.
+    \label{eq:rotation_law}
+\end{equation}
+The normalized equivariance error was
+\begin{equation}
+    E_{\mathrm{rot}}
+    =
+    \frac{
+        \left\|
+        \widehat{\bm{Q}}_{2}^{\,\prime}
+        -
+        \bm{R}\widehat{\bm{Q}}_{2}\bm{R}^{\mathsf T}
+        \right\|_{F}
+    }{
+        \left\|
+        \widehat{\bm{Q}}_{2}
+        \right\|_{F}
+    },
+    \label{eq:rotation_error}
+\end{equation}
+where $\|\cdot\|_{F}$ denotes the Frobenius norm. Thirteen imposed rotation
+angles were used for this test. The separate nearest-neighbour versus
+trilinear interpolation sensitivity reported in Fig.~5 was performed on
+oblique 3D sections and was not part of the Fig.~3 equivariance calculation.
+
+\subsection{Validation on real micro-CT rock images}
+\label{subsec:real_rocks}
+
+Real-rock validation used publicly available segmented micro-CT data from
+Ferreira et al.~\citep{Ferreira2023}, distributed through Figshare+ under
+DOI \texttt{10.25452/figshare.plus.21375565}. Two lithologically contrasting
+ROI-1 volumes were used: Bentheimer sandstone (Kocurek 15A) and Edwards Brown
+carbonate (EdB-1). Both binary files contain $2500^3$ unsigned 8-bit voxels
+with a voxel size of $2.25~\mu$m. The validated storage convention was
+0 = pore and 1 = solid; the analysis scripts convert this storage convention
+to the pore-indicator field before correlation calculations. No smoothing,
+morphological processing, or resegmentation was applied.
+
+Each ROI was sampled on a $3\times3\times3$ grid of 27 non-overlapping
+$512^3$ subvolumes, with center coordinates 384, 1250, and 2116 along each
+computational array axis. The axes were denoted $a_0$, $a_1$, and $a_2$ unless
+an independent mapping to physical plug coordinates was available.
+
+For every subvolume, a numerical full-3D reference tensor was estimated by
+direct directional Monte Carlo correlation sampling rather than a 3D FFT.
+Sixty-four approximately uniform Fibonacci-hemisphere directions plus the
+three computational axes gave 67 ambient directions. The frozen reference
+protocol used 50,000 base points per direction and five independent random
+seeds. The five seed-specific tensors were averaged in $\bm{Q}$ space and
+projected to SPD. We denote this finite-volume numerical estimate by
+$\bm{Q}_{3}^{\mathrm{ref}}$ rather than an analytic ground truth.
+
+Sparse reconstructions used three mutually orthogonal section families,
+$a_0$--$a_1$, $a_0$--$a_2$, and $a_1$--$a_2$. Thirteen candidate offsets
+per family were precomputed from $-192$ to $+192$ voxels in steps of 32.
+Reconstructions used 1, 3, 5, or 7 sections per family, corresponding to
+3, 9, 15, or 21 total sections. At each section count, 200 random
+section-position configurations were evaluated per subvolume. The numerical
+protocol was calibrated on Bentheimer and transferred unchanged to Edwards
+Brown; no lithology-specific retuning was performed.
+
+\subsection{Reconstruction accuracy metrics}
+\label{subsec:accuracy_metrics}
+
+Tensor-shape error was evaluated after determinant normalization. With
+\begin{equation}
+    \widetilde{\bm{Q}}
+    =
+    \frac{\bm{Q}}{\det(\bm{Q})^{1/3}},
+\end{equation}
+the reported tensor-shape error was
+\begin{equation}
+    E_{Q}
+    =
+    \frac{
+        \left\|
+            \widetilde{\bm{Q}}_{3,\mathrm{sparse}}
+            -
+            \widetilde{\bm{Q}}_{3,\mathrm{ref}}
+        \right\|_{F}
+    }{
+        \left\|
+            \widetilde{\bm{Q}}_{3,\mathrm{ref}}
+        \right\|_{F}
+    }.
+    \label{eq:tensor_error}
+\end{equation}
+For controlled synthetic Figs.~4 and 5, the reference denotes the prescribed
+tensor shape constructed from the generator scales and rotation. For real rocks
+it denotes the five-seed numerical full-3D reference tensor.
+
+When absolute principal correlation scales were compared, the relative error
+was
+\begin{equation}
+    E_{\ell,i}
+    =
+    \frac{
+        |\widehat{\ell}_{i}-\ell_{i}^{\mathrm{ref}}|
+    }{
+        \ell_{i}^{\mathrm{ref}}
+    }.
+    \label{eq:length_error}
+\end{equation}
+Principal-direction error was computed as the acute axial angle
+\begin{equation}
+    \Delta\alpha_{i}
+    =
+    \cos^{-1}
+    \left(
+        \left|
+        \widehat{\bm{e}}_{i}^{\mathsf T}        \bm{e}_{i}^{\mathrm{ref}}
+        \right|
+    \right),
+    \label{eq:orientation_error}
+\end{equation}
+which accounts for the sign indeterminacy of eigenvectors. Orientation error
+was not interpreted for nearly degenerate tensors. In the real-rock analysis,
+the major-axis angle was considered interpretable only when
+$(\ell_1-\ell_2)/\ell_1\geq0.10$.
+
+The anisotropy-ratio error reported in the real-rock comparison was the
+absolute difference
+\begin{equation}
+    E_{A}
+    =
+    \left|
+        \widehat{A}_{3}-A_{3}^{\mathrm{ref}}
+    \right|.
+    \label{eq:anisotropy_error}
+\end{equation}
+
+The relationship between inverse-problem conditioning and reconstruction
+accuracy was evaluated by comparing $E_{Q}$ with the condition number
+$\kappa$ in Eq.~\eqref{eq:condition_number}.
+
+\subsection{Sensitivity analyses}
+\label{subsec:sensitivity}
+
+The frozen production analysis evaluated sensitivity to quantities represented
+in the final figures: section field of view, section number and geometry,
+section position, directional angular sampling, and oblique-section
+interpolation. In Fig.~5, the controlled synthetic sensitivity benchmark
+varied centered section width from 64 to 144 pixels, the directional angular
+increment from $2.5^{\circ}$ to $30^{\circ}$, and the interpolation order
+between nearest-neighbour and trilinear-plus-threshold sampling on oblique
+sections. Figure~4 quantified the effects of section count and design-matrix
+conditioning. Figure~6 quantified section-position sensitivity and spatial
+replication in real rocks through repeated offset configurations across 27
+subvolumes.
+
+A sparse configuration was considered identifiable only when its observed
+directional design matrix had rank six. Rank-deficient configurations were
+retained and reported rather than silently replaced; $E_Q$ percentiles were
+computed conditionally on identifiable configurations, while the rank-six
+fraction was tracked separately. Condition number and tensor-fit residual were
+reported as diagnostics rather than used as undocumented exclusion rules.
+
+\subsection{Statistical analysis}
+\label{subsec:statistics}
+
+Synthetic results were summarized across independent generated realizations or
+section subsets using the distributional statistics shown in the corresponding
+figures. The blind-orientation experiment reports the median and 95th
+percentile of the absolute axial error; the observability and robustness
+experiments retain the individual reconstruction errors and summarize their
+central tendency and spread. No moving-block bootstrap confidence interval was
+used in the frozen synthetic production scripts.
+
+For real rocks, the statistical hierarchy followed the sampling design. Within
+each fixed $512^3$ subvolume, reconstruction metrics were first summarized
+across the 200 random section-position configurations. These subvolume-level
+summaries were then described across the 27 non-overlapping spatial regions.
+The reported position-induced interquartile ranges therefore quantify
+sensitivity to section placement within a fixed 3D region. The 27 subvolumes
+are spatial replicates within one ROI and are not interpreted as 27 independent
+rock specimens or as population-level confidence intervals for the lithology.
+
+Bootstrap resampling was used only in the Bentheimer numerical
+reference-consensus calibration described in
+Sec.~\ref{subsec:uncertainty}; it quantified numerical precision of the
+reference estimator rather than physical replication.
+
+\subsection{Implementation and reproducibility}
+\label{subsec:implementation}
+
+All frozen production analyses were implemented in Python. Numerical array
+operations used NumPy \citep{Harris2020}; FFT convolution, interpolation, and
+scientific computing routines used SciPy \citep{Virtanen2020}; and all
+publication graphics were generated with Matplotlib. Fixed random seeds and
+the figure-specific numerical parameters are embedded in the preserved
+scripts. Computationally expensive real-rock stages additionally store
+restart-safe caches and machine-readable CSV outputs containing the final
+subvolume, configuration, and reference summaries.
+
+Earlier exploratory PoreSpy scripts were retained in the original development
+workspace, but PoreSpy is not required by the frozen Figure~2--5 production
+scripts and is therefore not treated here as part of the final quantitative
+benchmark.
+
+Tensor estimation requires only the directional correlation measurements and
+the orientation basis of each section; no learned parameters are transferred
+between samples. The version-controlled repository accompanying the article
+preserves the production scripts, lightweight frozen result tables, data
+provenance, checksums, and a reusable implementation of the tensor inversion.
+
+% ============================================================
+% RESULTS AND DISCUSSION
+% ============================================================
+
+\section{Results and Discussion}
+\label{sec:results_discussion}
+
+\subsection{Directional correlation defines a tensorial descriptor of pore-space anisotropy}
+\label{sec:results_framework}
+
+The central premise of this work is that three-dimensional pore-space anisotropy can be inferred from sparse, oriented two-dimensional sections when the directional structural information contained in each section is expressed in a common tensorial framework. Figure~\ref{fig:figure1} summarizes this construction. Rather than attempting to reconstruct the pore geometry itself from a limited number of slices, the proposed approach reconstructs a lower-dimensional structural object: the symmetric positive-definite tensor $\mathbf{Q}$ governing the directional correlation scale. This distinction is important because two-point statistics encode non-trivial spatial information while remaining substantially more tractable than the complete pore morphology \cite{Jiao2007}. At the same time, a second-order tensor is the natural lowest-order object capable of representing directional fabric beyond the scalar information provided by porosity \cite{Cowin2004,Inglis2003}.
+
+Starting from a binary pore indicator, the normalized directional autocorrelation $C(\mathbf{u},r)$ is evaluated along an in-plane unit vector $\mathbf{u}$, as defined in Eq.~\eqref{eq:directional_acf}. The characteristic length $\ell(\mathbf{u})$ is then obtained from the first $1/e$ crossing [Fig.~\ref{fig:figure1}(c)], according to Eq.~\eqref{eq:correlation_length}. This reduction converts an entire correlation-decay curve into a directional length scale while retaining the information required to distinguish preferential structural directions. The angular response in Fig.~\ref{fig:figure1}(d) is strongly non-circular and is accurately represented by the quadratic form introduced in the Methods,
+%
+\begin{equation}
+    \ell^{-2}(\mathbf{u})
+    =
+    \mathbf{u}^{\mathsf T}
+    \mathbf{Q}
+    \mathbf{u},
+    \label{eq:results_tensor_reminder}
+\end{equation}
+%
+corresponding to Eq.~\eqref{eq:section_quadratic_form}. The eigenvectors of $\mathbf{Q}$ define the principal structural directions, whereas its eigenvalues determine the associated correlation scales. The equivalent ellipsoidal representation [Fig.~\ref{fig:figure1}(e)] therefore provides a compact geometric description of second-order pore-space anisotropy.
+
+A critical aspect of the formulation is that the information measured in each two-dimensional section is not treated as an independent ``2D anisotropy''. If $\mathbf{B}_{s}$ contains the basis vectors spanning section $s$, an in-plane direction $\mathbf{u}$ corresponds to the ambient direction
+%
+\begin{equation}
+    \mathbf{v}=\mathbf{B}_{s}\mathbf{u},
+\end{equation}
+%
+and consequently
+%
+\begin{equation}
+    \ell^{-2}(\mathbf{u})
+    =
+    \mathbf{u}^{\mathsf T}
+    \left(
+    \mathbf{B}_{s}^{\mathsf T}
+    \mathbf{Q}_{3D}
+    \mathbf{B}_{s}
+    \right)
+    \mathbf{u}.
+    \label{eq:results_section_form}
+\end{equation}
+%
+Thus, the section tensor is the restriction---strictly, the pullback of the ambient quadratic form---of the same three-dimensional structural tensor. Reorientation of the ambient frame obeys the usual second-order tensor transformation law. This provides the geometric link between the transformation argument introduced in the Methods and the inverse problem considered here: differently oriented sections probe different restrictions of a common tensor rather than unrelated descriptors.
+
+This construction should nevertheless be interpreted at the correct level of structural resolution. The tensor $\mathbf{Q}$ represents the ellipsoidal, second-order component of the directional correlation structure; it does not imply that the full pore geometry is ellipsoidal, nor that a two-point statistic uniquely specifies a two-phase microstructure \cite{Jiao2007}. Higher-order correlations, connectivity, topology, and multiscale pore populations may contain information not captured by $\mathbf{Q}$. The central question addressed in the remainder of the Results is therefore not whether a second-order tensor contains all microstructural information, but whether this tensorial component is identifiable, stable, and useful when observations are restricted to sparse two-dimensional sections.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figure1.png}
+    \caption{
+    \textbf{Tensorial reconstruction of pore-space anisotropy from sparse oriented sections.}
+    (a) Conceptual representation of multiple oriented two-dimensional sections intersecting a three-dimensional porous medium.
+    (b) Representative binary section with examples of in-plane sampling directions.
+    (c) Directional normalized autocorrelation functions; the first crossing of the $1/e$ threshold defines the directional correlation length $\ell(\mathbf{u})$.
+    (d) Polar representation of the measured directional correlation lengths and the fitted second-order tensor response $\ell^{-2}(\mathbf{u})=\mathbf{u}^{\mathsf T}\mathbf{Q}\mathbf{u}$.
+    (e) Ellipsoidal representation of the reconstructed three-dimensional anisotropy tensor in its principal frame.
+    The workflow converts directional two-point statistics measured on sparse sections into a common tensorial descriptor rather than attempting direct reconstruction of the complete three-dimensional pore geometry.
+    }
+    \label{fig:figure1}
+\end{figure*}
+
+
+\subsection{Section orientation controls whether anisotropy is observable}
+\label{sec:results_detectability}
+
+Figure~\ref{fig:figure2} first tests the most elementary consequence of Eq.~\eqref{eq:results_section_form}: a two-dimensional section can only detect anisotropy whose directional signature is expressed within that section. The isotropic and anisotropic synthetic media provide a controlled experiment in which porosity and the general generation procedure are retained while the correlation structure is modified along a prescribed direction.
+
+For the isotropic medium [Fig.~\ref{fig:figure2}(a)], the correlation decay is essentially direction independent, producing an almost circular angular response with $A_{2D}=1.02$ [Fig.~\ref{fig:figure2}(d)]. In contrast, when the section contains the imposed anisotropic direction [Fig.~\ref{fig:figure2}(b)], the directional correlation functions separate markedly [Fig.~\ref{fig:figure2}(c)], and the reconstructed angular response becomes strongly elliptical, with $A_{2D}=2.73$ [Fig.~\ref{fig:figure2}(e)]. The effect is reproducible across independent realizations [Fig.~\ref{fig:figure2}(f)]: the anisotropic $XZ$ sections separate clearly from their isotropic counterparts, whereas the $XY$ sections remain close to isotropic when the imposed preferential direction is not contained in that plane.
+
+This result establishes an important conceptual distinction between \emph{absence of anisotropy} and \emph{absence of detectability}. A nearly isotropic response measured on one section cannot, by itself, establish three-dimensional isotropy. It may instead indicate that the principal anisotropic direction lies largely outside the observation plane. In tensorial terms, the measured quantity is $\mathbf{B}_{s}^{\mathsf T}\mathbf{Q}\mathbf{B}_{s}$; information orthogonal to the span of $\mathbf{B}_{s}$ is not recoverable from that section alone.
+
+This observation motivates the use of complementary section orientations. It also explains why measurements obtained from a single histological slice, thin section, SEM image, or planar tomographic cut should not generally be interpreted as complete three-dimensional fabric descriptors. The proposed framework does not remove this geometrical limitation; rather, it makes the limitation explicit and provides the mathematical mechanism by which complementary observations can subsequently be combined.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figure2.png}
+    \caption{
+    \textbf{In-plane detectability of prescribed pore-space anisotropy.}
+    (a,b) Representative $XZ$ sections from isotropic and anisotropic synthetic porous media.
+    (c) Directional autocorrelation decay along the principal in-plane directions, showing the shortened correlation scale associated with the imposed anisotropy.
+    (d) The isotropic medium produces an approximately circular angular response ($A_{2D}=1.02$).
+    (e) When the anisotropic direction lies within the section, the response becomes strongly elliptical ($A_{2D}=2.73$).
+    (f) Distribution of the recovered two-dimensional anisotropy ratio across independent realizations. Strong anisotropy is detected in the $XZ$ plane that contains the modified direction, whereas the $XY$ plane acts as a negative control.
+    The result demonstrates that a single planar observation measures the restriction of the three-dimensional fabric to that plane and therefore cannot detect arbitrary out-of-plane anisotropy.
+    }
+    \label{fig:figure2}
+\end{figure*}
+
+
+\subsection{Principal orientation is recovered blindly and transforms equivariantly}
+\label{sec:results_rotation}
+
+A more stringent test is whether the tensor formalism can recover an orientation that is not supplied to the inversion. Figure~\ref{fig:figure3} addresses this problem through blind in-plane rotations. In the representative realization, a prescribed principal orientation of $37.0^{\circ}$ was recovered as $37.9^{\circ}$, corresponding to an axial error of only $0.9^{\circ}$ [Fig.~\ref{fig:figure3}(a)]. Importantly, this agreement is obtained from the angular correlation response itself [Fig.~\ref{fig:figure3}(b)], rather than from direct image-based orientation segmentation.
+
+Across the ensemble of independent realizations, recovered and imposed orientations remain close to the identity line over almost the entire $0$--$180^{\circ}$ axial range [Fig.~\ref{fig:figure3}(d)]. The median absolute orientation error is $1.15^{\circ}$ and the 95th percentile is $3.10^{\circ}$ [Fig.~\ref{fig:figure3}(e)]. These results demonstrate that the eigensystem of $\mathbf{Q}_{2D}$ is not merely correlated with visual elongation but quantitatively tracks the imposed principal direction.
+
+The rotation experiment also tests a more fundamental requirement: tensor covariance. As the underlying structure is rotated, the individual Cartesian components $q_{xx}$, $q_{xy}$, and $q_{yy}$ vary strongly and periodically [Fig.~\ref{fig:figure3}(c)]. These components therefore have no invariant physical meaning in isolation. Nevertheless, the reconstructed tensors approximately obey the transformation
+%
+\begin{equation}
+    \mathbf{Q}_{\alpha}
+    \simeq
+    \mathbf{R}_{\alpha}
+    \mathbf{Q}_{0}
+    \mathbf{R}_{\alpha}^{\mathsf T},
+    \label{eq:rotation_equivariance}
+\end{equation}
+%
+with a median determinant-normalized equivariance error of $3.29\%$ and a maximum of $7.55\%$ over the tested rotations [Fig.~\ref{fig:figure3}(f)]. The residual discrepancy reflects finite-image sampling, discrete directional sampling, and interpolation rather than a systematic dependence on the laboratory coordinate system.
+
+This equivariance test is particularly relevant to the interpretation of $\mathbf{Q}$ as a fabric-like tensor \cite{Cowin2004,Inglis2003}. A scalar anisotropy index alone could reproduce the magnitude of directional contrast but could not encode how that contrast must transform under rotation. The simultaneous recovery of eigenvalues, eigenvectors, and the correct rotational behavior is therefore stronger evidence for the tensorial interpretation than agreement of anisotropy ratios alone.
+
+The orientation error should, however, not be interpreted independently of spectral separation. When two eigenvalues are nearly degenerate, their associated eigenvectors are intrinsically weakly determined: a nearly isotropic structure can undergo a large change in principal-axis direction with only a very small tensor perturbation. This point becomes important in the real-rock experiments below, where several Bentheimer subvolumes exhibit weak anisotropy and therefore do not support a physically meaningful high-precision orientation estimate.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figure3.png}
+    \caption{
+    \textbf{Blind recovery of principal orientation and rotational equivariance of the reconstructed tensor.}
+    (a) Representative anisotropic section with a prescribed principal direction of $37.0^{\circ}$ and a recovered direction of $37.9^{\circ}$.
+    (b) Directional correlation-length response and fitted tensor for the blind case.
+    (c) Evolution of the normalized Cartesian tensor components under imposed rotations; individual components depend on the coordinate frame even though the underlying tensor transforms systematically.
+    (d) Recovered versus prescribed principal orientation across independent realizations.
+    (e) Distribution of absolute axial errors, with median $1.15^{\circ}$ and 95th percentile $3.10^{\circ}$.
+    (f) Error in the expected rotation-equivariance relation for $\mathbf{Q}_{2D}$; the median error is $3.29\%$ and the maximum is $7.55\%$.
+    }
+    \label{fig:figure3}
+\end{figure*}
+
+
+\subsection{Three-dimensional recovery is an observability problem before it is an accuracy problem}
+\label{sec:results_observability}
+
+The transition from planar characterization to three-dimensional reconstruction introduces an inverse problem with six independent unknowns, corresponding to the independent components of a symmetric $3\times3$ tensor. Figure~\ref{fig:figure4} separates two issues that are often conflated: \emph{identifiability} of those six unknowns and \emph{accuracy} of their estimation.
+
+The complementary sections shown in Fig.~\ref{fig:figure4}(a) generate linear constraints of the form
+%
+\begin{equation}
+    \ell_k^{-2}
+    =
+    \mathbf{v}_k^{\mathsf T}
+    \mathbf{Q}_{3D}
+    \mathbf{v}_k ,
+\end{equation}
+%
+which are linear in the six independent coefficients of $\mathbf{Q}_{3D}$. The singular-value spectra of the resulting design matrices make the observability structure explicit [Fig.~\ref{fig:figure4}(b)]. One oriented section spans only a rank-3 subspace; two complementary sections increase the rank to five; and three appropriately oriented sections provide rank six. Thus, three non-redundant planar orientations constitute the minimal geometry required to identify a general symmetric three-dimensional tensor under the present measurement model.
+
+The full-rank condition is necessary, but it is not sufficient for accurate recovery. For the representative synthetic realization, the three-section inversion recovers the overall ellipsoidal tensor shape with $E_Q=13.7\%$ [Fig.~\ref{fig:figure4}(c)]. The principal correlation scales are also reproduced, with principal-axis errors of $8.0^{\circ}$, $8.1^{\circ}$, and $1.8^{\circ}$ [Fig.~\ref{fig:figure4}(d)]. Adding further oriented sections provides redundant constraints and progressively decreases the distribution of tensor-shape errors [Fig.~\ref{fig:figure4}(e)]. Redundancy therefore serves a statistical role after geometrical identifiability has already been achieved.
+
+The conditioning analysis in Fig.~\ref{fig:figure4}(f) provides the second part of this argument. Tensor error increases systematically, although with substantial scatter, as the design-matrix condition number increases; the observed Spearman association is $\rho=0.44$. Consequently, two nominally full-rank experiments can have very different sensitivity to noise and finite-sample fluctuations. Experimental design should therefore seek not merely six independent equations, but a well-conditioned distribution of section orientations.
+
+These findings lead to one of the principal distinctions of the present work:
+%
+\begin{equation}
+    \boxed{
+    \text{orientation diversity controls identifiability, whereas
+    measurement redundancy controls stability.}
+    }
+\end{equation}
+%
+The first is fundamentally geometric; the second is statistical. This distinction becomes even more consequential in real heterogeneous rocks, where repeated sections of the same orientation additionally control spatial representativity.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figure4.png}
+    \caption{
+    \textbf{Observability, reconstruction accuracy, and conditioning of the three-dimensional tensor inversion.}
+    (a) Three complementary planar sections used to constrain the six independent components of a symmetric $3\times3$ tensor.
+    (b) Normalized singular values of the design matrix. One section gives rank 3, two complementary sections rank 5, and three complementary sections rank 6.
+    (c) Representative comparison between the prescribed and recovered determinant-normalized three-dimensional tensor ellipsoids, with tensor-shape error $E_Q=13.7\%$.
+    (d) Principal correlation scales of the prescribed and recovered tensors; the corresponding principal-axis errors are $8.0^{\circ}$, $8.1^{\circ}$, and $1.8^{\circ}$.
+    (e) Distribution of tensor-shape error as additional oriented sections provide redundant constraints.
+    (f) Reconstruction error versus design-matrix condition number, showing that full rank alone does not guarantee a stable inversion (Spearman $\rho=0.44$).
+    }
+    \label{fig:figure4}
+\end{figure*}
+
+
+\subsection{Synthetic robustness identifies finite section size as the dominant numerical limitation}
+\label{sec:results_robustness}
+
+Figure~\ref{fig:figure5} tests whether the reconstruction depends critically on nuisance parameters that are not part of the tensorial theory itself. The imposed anisotropy ratio, porosity, finite field of view, directional angular increment, and oblique-section interpolation scheme were varied independently.
+
+The recovered anisotropy ratio follows the prescribed trend over the full tested range and across porosities $\phi=0.15$, $0.25$, and $0.35$ [Fig.~\ref{fig:figure5}(a)]. The agreement is particularly notable because porosity modifies the amount and spatial distribution of the sampled pore phase without altering the mathematical definition of $\mathbf{Q}$. Tensor-shape errors remain of comparable order across porosity and prescribed anisotropy [Fig.~\ref{fig:figure5}(b)], indicating that the inversion is not restricted to one particular volume fraction. Principal-direction recovery improves as the prescribed anisotropy strengthens [Fig.~\ref{fig:figure5}(c)], as expected from eigenvector perturbation arguments: when the principal correlation scales are well separated, the associated eigendirections are more stable.
+
+The strongest numerical dependence is associated with finite section size [Fig.~\ref{fig:figure5}(d)]. Increasing the section width from approximately 64 to 144 pixels reduces the characteristic tensor-shape error from roughly one third to close to $13\%$. This behavior is consistent with the statistical nature of the estimator: larger sections contain more independent structural information and reduce fluctuations in the directional correlation function. In contrast, decreasing the directional sampling increment from $30^{\circ}$ to $2.5^{\circ}$ produces little systematic improvement [Fig.~\ref{fig:figure5}(e)]. Once the angular response is sufficiently sampled to constrain the quadratic form, adding many nearby directions provides predominantly redundant rather than independent information.
+
+Similarly, nearest-neighbor and trilinear-plus-threshold resampling of oblique sections produce closely comparable tensor errors [Fig.~\ref{fig:figure5}(f)]. The reconstruction is therefore substantially less sensitive to the precise interpolation rule than to the amount of statistically representative microstructure contained in the section. Collectively, these experiments indicate that the main limitation is not directional angular resolution but finite spatial sampling.
+
+This result has an important implication for practical imaging. Increasing the number of angular probes within one small, unrepresentative section cannot compensate indefinitely for insufficient field of view. The relevant resource is independent microstructural information, not simply the number of measurements extracted from the same pixels. This interpretation is closely related to the representative-elementary-volume problem in porous media, for which convergence is known to depend on both the descriptor under consideration and the spatial heterogeneity of the material \cite{AlRaoush2010,Singh2020,Zubov2024}.
+
+The synthetic tests nevertheless represent a deliberately controlled class of media. The structures are generated with smooth, prescribed statistical anisotropy and therefore do not span the connectivity, multimodal pore-size distributions, vugs, fractures, or non-stationarity present in natural rocks. Figure~\ref{fig:figure5} should consequently be interpreted as a robustness and numerical-consistency test, not as evidence that all natural pore architectures are reducible to a single second-order tensor.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figure5.png}
+    \caption{
+    \textbf{Robustness of tensor recovery to porosity, anisotropy magnitude, finite field of view, directional sampling, and oblique-section resampling.}
+    (a) Recovered versus prescribed anisotropy ratio for three porosities; the dashed line denotes ideal recovery.
+    (b) Tensor-shape error across prescribed anisotropy ratios and porosities.
+    (c) Major-axis orientation error, which decreases as eigenvalue separation and hence anisotropy strength increase.
+    (d) Finite-section sensitivity: increasing the two-dimensional field of view systematically decreases reconstruction error.
+    (e) Directional angular-sampling sensitivity; errors are nearly unchanged over sampling increments from $2.5^{\circ}$ to $30^{\circ}$ once the quadratic response is adequately resolved.
+    (f) Comparison of nearest-neighbor and trilinear-plus-threshold resampling for oblique sections, showing only minor differences relative to the substantially larger finite-section effect.
+    Error bars represent the variability across independent synthetic realizations.
+    }
+    \label{fig:figure5}
+\end{figure*}
+
+
+\subsection{Real-rock validation reveals a lithology-dependent representativity limit}
+\label{sec:results_realrocks}
+
+The decisive test is whether the conclusions obtained in controlled synthetic structures persist in natural pore systems. Figure~\ref{fig:figure6} compares Bentheimer sandstone with Edwards Brown carbonate using the same frozen inversion protocol and without lithology-specific retuning. The segmented micro-CT data were obtained from the open full-scale rock tomography dataset of Ferreira et al.~\cite{Ferreira2023}, which provides standardized binary $2500^3$ voxel regions of interest from sandstone and carbonate plugs.
+
+The representative sections in Fig.~\ref{fig:figure6}(a) immediately illustrate the different structural regimes. Bentheimer exhibits a comparatively homogeneous intergranular pore architecture, whereas Edwards Brown contains much stronger spatial variability and a broader hierarchy of pore sizes. This visual contrast is quantified across 27 non-overlapping $512^3$ subvolumes per rock [Fig.~\ref{fig:figure6}(b)]. Bentheimer occupies a narrow range of porosity ($18.58$--$24.36\%$) and reference anisotropy ($A_{\mathrm{ref}}=1.104$--$1.317$), whereas Edwards Brown spans porosities from $0.84$ to $34.93\%$ and reaches $A_{\mathrm{ref}}=3.015$. The substantially broader carbonate distribution establishes a considerably more demanding test of spatial representativity.
+
+Replication produces the same qualitative improvement in both lithologies but at markedly different absolute accuracy [Fig.~\ref{fig:figure6}(c)]. For Bentheimer, the spatial median tensor-shape error decreases from
+%
+\[
+18.00\%
+\rightarrow
+10.06\%
+\rightarrow
+7.42\%
+\rightarrow
+6.32\%
+\]
+%
+as the total number of sections increases from 3 to 9, 15, and 21. This corresponds to an approximately $65\%$ reduction relative to the minimally identifiable three-section experiment. For Edwards Brown, the same protocol gives
+%
+\[
+38.84\%
+\rightarrow
+23.14\%
+\rightarrow
+18.92\%
+\rightarrow
+16.94\%,
+\]
+%
+corresponding to a reduction of approximately $56\%$. Thus, increasing spatial replication consistently improves reconstruction, but the asymptotic accuracy is strongly controlled by lithology.
+
+The position-induced uncertainty provides perhaps the clearest evidence for the mechanism [Fig.~\ref{fig:figure6}(d)]. In Bentheimer, the median within-subvolume interquartile range of $E_Q$ decreases from $9.15$ to $2.63$ percentage points between 3 and 21 sections. Edwards Brown exhibits an even larger reduction, from $26.83$ to $6.95$ percentage points. The error decrease is therefore accompanied by a collapse in sensitivity to the particular section positions. Repeated parallel sections are not adding new tensor degrees of freedom; instead, they progressively average over local microstructural fluctuations.
+
+This observation refines the distinction established by the synthetic inversion:
+%
+\begin{equation}
+    \boxed{
+    \begin{aligned}
+    \text{orientation diversity} &\;\longrightarrow\; \text{identifiability},\\
+    \text{spatial replication}   &\;\longrightarrow\; \text{representativity}.
+    \end{aligned}
+    }
+    \label{eq:identifiability_representativity}
+\end{equation}
+%
+Three complementary orientations can provide a formally full-rank tensor inversion, but they do not guarantee that the individual sections represent the surrounding three-dimensional material. This is conceptually consistent with the REV literature, where representativity is known to depend on both microstructural stationarity and the particular descriptor being estimated \cite{AlRaoush2010,Singh2020,Zubov2024}. Here, the relevant descriptor is not porosity alone but the directional second-order correlation tensor.
+
+The anisotropy magnitude exhibits the same stabilization [Fig.~\ref{fig:figure6}(e)]. For Bentheimer, the median absolute difference $|A_{\mathrm{sparse}}-A_{\mathrm{ref}}|$ decreases from $0.133$ with three sections to approximately $0.023$ with 15--21 sections. For Edwards Brown it decreases more strongly, from $0.384$ to $0.066$. The near-saturation of the Bentheimer anisotropy error between 15 and 21 sections suggests that five sections per orientation already define a practical high-accuracy regime for this particular sandstone and spatial scale. This number should not, however, be interpreted as universal: the carbonate results demonstrate explicitly that the required replication depends on the underlying microstructure.
+
+The success-rate analysis in Fig.~\ref{fig:figure6}(f) makes this lithological dependence particularly clear. With 15 sections, $93\%$ of Bentheimer subvolumes achieve $E_Q\leq10\%$, increasing to $100\%$ with 21 sections. In Edwards Brown, only $19\%$ of the subvolumes satisfy the same $10\%$ threshold even at 21 sections; $44\%$ satisfy $E_Q\leq15\%$ and $63\%$ satisfy $E_Q\leq20\%$. Consequently, the method should not be described by a universal section count or universal reconstruction accuracy. Its stronger and more general result is that replication systematically reduces both error and position sensitivity, whereas the attainable error floor depends on the degree to which a single second-order tensor is representative of the local pore architecture.
+
+The real-rock results also expose the boundary of the second-order model. The median reference-tensor fitting residual is approximately $0.99\%$ in Bentheimer but $2.03\%$ in Edwards Brown, and some carbonate subvolumes show substantially larger departures. In addition, a small subset of minimally replicated carbonate configurations can lose rank because one section family contains insufficient finite $1/e$ crossings within the prescribed lag window. These observations indicate two distinct failure modes: insufficient spatial representativity of an otherwise tensorial structure, and inadequacy or censoring of the second-order correlation description itself. The latter can arise in strongly heterogeneous, multiscale, or long-range-correlated microstructures.
+
+The dotted uncertainty level in Fig.~\ref{fig:figure6}(c) should therefore be interpreted carefully. The $1.71\%$ value is the 95th-percentile numerical uncertainty established during reference-protocol calibration on Bentheimer, using five independent $50\,000$-point estimates. It demonstrates that, for Bentheimer, reference-estimator noise is substantially smaller than the sparse-section reconstruction errors. It should not be interpreted as a lithology-independent uncertainty bound for Edwards Brown, because Monte Carlo convergence can itself depend on microstructure.
+
+Finally, only $4$ of the $27$ Bentheimer subvolumes have sufficient spectral separation for the major eigenvector to be considered reliably oriented, compared with $9$ of $27$ Edwards Brown subvolumes under the adopted criterion. We therefore emphasize tensor-shape and anisotropy recovery rather than principal-axis errors in the real-rock comparison. When the two largest principal correlation scales are nearly degenerate, a large angular change can correspond to an arbitrarily small perturbation of the tensor, making orientation error a misleading performance metric.
+
+Taken together, the synthetic and real-rock experiments support a hierarchical interpretation of sparse-section anisotropy recovery. The tensor transformation provides the geometric structure needed to combine differently oriented observations; complementary planes establish observability; repeated sections suppress local sampling fluctuations; and the remaining error reflects the degree to which the material itself admits a representative second-order description at the selected scale. The method therefore does not circumvent the representative-volume problem. Rather, it converts that problem into a measurable convergence process in tensor space, providing both a reconstruction and an internal diagnostic of when sparse planar observations cease to be representative.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figure6.png}
+    \caption{
+    \textbf{Lithology-dependent recovery of three-dimensional pore-space anisotropy from sparse sections in real rocks.}
+    (a) Representative binary microstructures from Bentheimer sandstone and Edwards Brown carbonate. Scale bars are $500~\mu$m; representative section porosities are approximately $21.9\%$ and $21.1\%$, respectively.
+    (b) Reference anisotropy ratio $A_{\mathrm{ref}}$ versus subvolume porosity for 27 non-overlapping $512^3$ subvolumes of each rock. Bentheimer occupies a comparatively narrow structural range, whereas Edwards Brown displays substantially greater porosity and anisotropy heterogeneity.
+    (c) Spatial median determinant-normalized tensor-shape error $E_Q$ versus total number of sections. Errors decrease systematically with spatial replication in both lithologies but remain larger in the heterogeneous carbonate. The dotted $1.71\%$ line denotes the 95th-percentile reference-protocol uncertainty calibrated on Bentheimer and is not assumed to be a universal lithology-independent uncertainty.
+    (d) Median within-subvolume interquartile range of $E_Q$, quantifying sensitivity to section position. Replication strongly reduces position dependence in both rocks.
+    (e) Median absolute anisotropy-ratio error $|A_{\mathrm{sparse}}-A_{\mathrm{ref}}|$, which decreases and approaches a stable regime as additional sections are included.
+    (f) Fraction of subvolumes satisfying $E_Q\leq10\%$ and $E_Q\leq20\%$. Bentheimer reaches $100\%$ below $10\%$ error with 21 sections, whereas Edwards Brown remains substantially more challenging, demonstrating that achievable reconstruction accuracy depends on microstructural heterogeneity rather than on identifiability alone.
+    Real-rock micro-CT data are from Ferreira et al.~\cite{Ferreira2023}.
+    }
+    \label{fig:figure6}
+\end{figure*}
+
+
+\subsection{Implications and domain of applicability}
+\label{sec:results_implications}
+
+The collective results establish three progressively stronger claims. First, directional two-point correlation lengths admit an accurate second-order tensor representation for the synthetic structures considered here and for a large fraction of the real-rock subvolumes. Second, this tensor transforms consistently under rotation and can be reconstructed in three dimensions from sufficiently diverse planar restrictions. Third, and most importantly for practical imaging, formal observability does not imply spatial representativity: the latter must be established through replicated sampling.
+
+This distinction suggests a practical acquisition strategy. When section orientation can be controlled, the first priority should be to maximize orientation diversity until the three-dimensional design matrix becomes full rank and reasonably conditioned. Once identifiability is achieved, additional acquisition effort is better spent on spatially separated replicas of those orientations than on arbitrarily dense angular sampling within the same limited field of view. Figure~\ref{fig:figure5} shows that the latter rapidly becomes redundant, whereas Fig.~\ref{fig:figure6} shows that spatial replication produces large gains in natural heterogeneous media.
+
+Several limitations delimit the present conclusions. The characteristic length is defined through a fixed $1/e$ crossing and therefore compresses the full directional correlation curve into a single scale; alternative integral or model-based correlation lengths may respond differently in multiscale media. The second-order representation captures ellipsoidal fabric but cannot represent arbitrary non-ellipsoidal angular responses or higher-order pore statistics. The real-rock validation includes two contrasting lithologies but only one imaged ROI/plug from each; the 27 subvolumes provide spatial replication within each ROI and must not be treated as 27 statistically independent rock specimens. Finally, the method characterizes structural anisotropy and does not by itself establish an equivalent anisotropy of permeability, elastic response, electrical conductivity, or other transport properties. Such links require property-specific validation because representative scales can differ between morphological and physical observables \cite{AlRaoush2010,Zubov2024}.
+
+Within these limits, the principal contribution is a transferable framework for converting sparse directional image information into a coordinate-consistent three-dimensional structural descriptor. The results indicate that the central experimental design problem is not simply ``how many slices are required'', but rather how much \emph{independent orientation information} and how much \emph{independent spatial information} are required for the tensor to become both identifiable and representative. This separation of geometrical observability from statistical representativity provides a general basis for extending the approach beyond digital rocks to other heterogeneous materials for which volumetric imaging is limited but oriented planar sections are readily available.
+
+% ============================================================
+% CONCLUSIONS
+% ============================================================
+
+\section{Conclusions}
+\label{sec:conclusions}
+
+This work introduced a direct framework for inferring three-dimensional pore-space anisotropy from sparse, oriented two-dimensional sections without reconstructing the underlying three-dimensional pore geometry. The central idea is to convert directional two-point correlation measurements into a symmetric positive-definite correlation-length tensor, whose eigenstructure defines the principal directions and characteristic scales of the second-order pore architecture. By expressing each planar observation as a restriction of a common three-dimensional quadratic form, directional measurements acquired on different section orientations can be assembled into a single coordinate-consistent inverse problem.
+
+The synthetic experiments establish the internal consistency of this formulation. The recovered tensor detects anisotropy only when the corresponding directional information is present in the observation plane, recovers unknown principal orientations with small angular error, transforms approximately equivariantly under rotation, and becomes fully observable only when the section geometry provides six independent tensor constraints. These results show that tensor reconstruction is fundamentally an observability problem before it becomes an accuracy problem. Full rank is necessary, but the conditioning and redundancy of the directional measurements determine how stable the inversion is under finite sampling.
+
+A second and equally important result is the distinction between geometric identifiability and statistical representativity. Complementary section orientations determine whether the tensor can, in principle, be identified, whereas repeated spatial sampling determines whether the estimated tensor is representative of the surrounding material. This distinction was already visible in the synthetic finite-field-of-view tests and became decisive in the real-rock experiments. Increasing the number of parallel section replicas systematically reduced both the tensor-reconstruction error and the sensitivity to section position, even though those additional sections did not introduce new tensor degrees of freedom.
+
+The real-rock validation demonstrates both the strength and the limit of the approach. In Bentheimer sandstone, increasing the total number of sections from 3 to 21 reduced the spatial median tensor-shape error from $18.00\%$ to $6.32\%$, while the median position-induced interquartile range decreased from $9.15$ to $2.63$ percentage points. A practical regime was already reached with 15 sections, for which $93\%$ of the analyzed subvolumes achieved $E_Q \leq 10\%$. In the substantially more heterogeneous Edwards Brown carbonate, the same frozen acquisition and inversion protocol reduced the median tensor-shape error from $38.84\%$ to $16.94\%$ and the position-induced interquartile range from $26.83$ to $6.95$ percentage points. Thus, spatial replication remained beneficial across contrasting lithologies, but the attainable accuracy was strongly material dependent.
+
+This lithology dependence is itself a central result. The method should therefore not be interpreted as providing a universal number of required sections or a universal reconstruction error. Instead, it provides a framework in which convergence with section replication can be measured explicitly. In comparatively homogeneous media, the tensor converges rapidly toward a stable representative descriptor; in strongly heterogeneous, multiscale, or weakly tensorial regions, a non-negligible residual error remains even after substantial replication. Such residuals are not merely algorithmic failures but diagnostics of the degree to which a single second-order tensor adequately represents the local pore architecture at the selected scale.
+
+The present framework also has clear boundaries. The correlation length extracted from the first $1/e$ crossing compresses the full directional correlation function into a single scale, and the tensor model captures only the ellipsoidal, second-order component of pore-space organization. It does not uniquely determine the pore geometry, topology, connectivity, or higher-order statistics, nor does structural anisotropy automatically imply equivalent anisotropy in permeability, electrical conductivity, elasticity, or other effective properties. In addition, the natural-rock validation was performed on spatially replicated subvolumes from one ROI of each lithology, and these subvolumes should not be interpreted as independent geological specimens.
+
+Within these limits, the framework changes the nature of the sparse-imaging problem. Rather than reconstructing an unobserved three-dimensional volume and subsequently extracting an anisotropy descriptor from it, the method infers the descriptor directly from the information actually measured. This reduction in target dimensionality makes the inverse problem more transparent and exposes three distinct sources of uncertainty: insufficient orientation diversity, insufficient spatial representativity, and inadequacy of the second-order tensor model.
+
+The main implication is therefore methodological rather than material specific:
+
+\begin{equation}
+    \boxed{
+    \text{orientation diversity controls identifiability, while spatial replication controls representativity.}
+    }
+\end{equation}
+
+This separation provides a practical principle for designing sparse-section experiments. Acquisition should first ensure sufficiently diverse orientations to make the tensor observable and well conditioned, and should then prioritize spatially separated replicas to reduce local sampling bias. More broadly, the results suggest that when the quantity of interest is a low-dimensional structural tensor, direct tensor inference can be more identifiable, more interpretable, and experimentally more economical than attempting full three-dimensional microstructure reconstruction.
+
+Accordingly, the proposed approach provides a general route for extracting three-dimensional directional structure from incomplete planar observations and offers an internal convergence criterion for determining when those observations become representative. Although demonstrated here for pore-space anisotropy in geological materials, the formulation is not tied to a specific lithology or imaging modality and may be transferable to other heterogeneous systems in which complete volumetric characterization is difficult but multiple oriented planar sections are available.
+
+% ============================================================
+% SUPPLEMENTARY INFORMATION
+% ============================================================
+
+\section*{Supplementary Information}
+\label{sec:supplementary}
+
+\setcounter{section}{0}
+\renewcommand{\thesection}{S\arabic{section}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\theequation}{S\arabic{equation}}
+
+\section{Data acquisition, computational workflow, and reproducibility}
+\label{sec:SI_reproducibility}
+
+This Supplementary Information documents the complete computational workflow used to generate the synthetic experiments, calibrate the numerical reference estimator, process the real-rock data, reconstruct the sparse-section tensors, and produce the quantitative results reported in the main text. All calculations were performed with standalone Python scripts, and random-number generators were initialized with fixed seeds to ensure deterministic reproduction of each experiment. Intermediate results from computationally expensive stages were stored in restart-safe cache files, such that interrupted calculations could be resumed without changing the statistical design.
+
+\subsection{Real-rock micro-CT datasets}
+\label{sec:SI_data}
+
+The real-rock validation was performed using publicly available segmented micro-computed-tomography data from the dataset of Ferreira et al.~\cite{Ferreira2023},
+%
+\begin{quote}
+\textit{Full scale, microscopically resolved tomographies of sandstone and carbonate rocks augmented by experimental porosity and permeability values}.
+\end{quote}
+%
+The dataset is available through Figshare+ under DOI
+\texttt{10.25452/figshare.plus.21375565} and contains reconstructed and segmented images of sandstone and carbonate plugs together with experimental porosity and permeability information.
+
+Two lithologically contrasting samples were selected:
+
+\begin{itemize}
+    \item Bentheimer sandstone, identified in the dataset as Kocurek 15A;
+    \item Edwards Brown carbonate, identified as EdB-1.
+\end{itemize}
+
+Only binary ROI-1 volumes were used in the final analysis. The repository files were
+
+\begin{verbatim}
+kocurek_15a_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw.tar.bz2
+edb-1_2p25um_ir_rec_2500x2500x2500_binary_ROI-1.raw.tar.bz2
+\end{verbatim}
+
+corresponding to Figshare file identifiers 38022670 and 38022599, respectively. The dataset metadata file
+
+\begin{verbatim}
+Dataset_Information.xlsx
+\end{verbatim}
+
+was also downloaded from the same repository. All binary ROI files have dimensions $2500\times2500\times2500$ voxels and are stored as unsigned 8-bit integers. Each uncompressed volume therefore contains exactly
+%
+\[
+2500^3 = 15\,625\,000\,000
+\]
+%
+bytes.
+
+The Edwards Brown archive had a compressed size of approximately 421~MiB, whereas the uncompressed binary ROI occupied approximately 14.55~GiB. File size was checked against the expected number of voxels immediately after extraction. The same byte-count validation was applied to Bentheimer.
+
+The source dataset reports a voxel size of $2.25~\mu$m for the binary images used here. Consequently, each $512^3$ analysis subvolume corresponds to a physical side length of approximately
+%
+\[
+512\times2.25~\mu{\rm m}=1.152~{\rm mm}.
+\]
+
+\subsection{Automated data download and extraction}
+\label{sec:SI_download}
+
+Repository access was automated using the script
+
+\begin{verbatim}
+download_real_rocks.py
+\end{verbatim}
+
+which queries the Figshare REST API for article ID 21375565 rather than relying on manually copied download links. The script identifies the requested rock and ROI from the repository metadata, downloads the compressed archive with resumable transfer, extracts the single RAW member, verifies the uncompressed byte count, and performs a lightweight binary-value check on distributed image planes.
+
+The typical commands used were
+
+\begin{verbatim}
+python3 download_real_rocks.py --rock edb1 --rois 1 --list-only
+python3 download_real_rocks.py --rock edb1 --rois 1
+\end{verbatim}
+
+The first command retrieves and displays the repository metadata without downloading the image, whereas the second performs the complete download, extraction, and binary-storage validation.
+
+No image conversion, resizing, smoothing, morphological processing, or resegmentation of the published binary volumes was performed before the analyses described below.
+
+\subsection{Binary phase convention}
+\label{sec:SI_phase}
+
+The raw binary values were checked independently before tensor reconstruction. For Bentheimer, distributed planes were sampled and the binary convention was verified prior to the final experiments. For Edwards Brown, nine planes distributed through the ROI were sampled after extraction. The measured zero and one fractions were approximately $19.99\%$ and $80.01\%$, respectively. The approximately $20\%$ zero fraction was consistent with the ROI-1 computed porosity reported for EdB-1 in the dataset documentation.
+
+The final convention was therefore
+
+\begin{equation}
+    {\rm RAW}=0 \rightarrow {\rm pore},
+    \qquad
+    {\rm RAW}=1 \rightarrow {\rm solid}.
+    \label{eq:SI_phase}
+\end{equation}
+
+Internally, the pore indicator used in the statistical calculations was defined as
+
+\begin{equation}
+    \chi(\mathbf{x})=
+    \begin{cases}
+        1, & \mathbf{x}\ \textrm{belongs to the pore phase},\\
+        0, & \mathbf{x}\ \textrm{belongs to the solid phase}.
+    \end{cases}
+\end{equation}
+
+Thus, for the real-rock RAW files,
+$\chi=1-\mathrm{RAW}$.
+
+\subsection{Synthetic porous-media generation}
+\label{sec:SI_synthetic}
+
+The final synthetic figures were generated by standalone scripts with
+figure-specific domains and fixed random seeds.
+
+Figure~2 used thresholded three-dimensional Gaussian-filtered white-noise
+fields of size $96^3$ at porosity 0.27. The isotropic Gaussian widths were
+$(4.8,4.8,4.8)$ voxels and the anisotropic widths were
+$(4.8,4.8,1.8)$ voxels; 20 independent realizations were used.
+
+Figure~3 used two-dimensional anisotropic Gaussian random fields generated on
+a $256\times256$ parent canvas, with Gaussian widths 2.1 and 6.0 pixels.
+Rotated images were cropped to $160\times160$ before analysis. Sixty
+independent blind-angle realizations and 13 explicit rotation-equivariance
+angles were evaluated.
+
+Figure~4 used a stationary spectral Gaussian random field on a $224^3$
+periodic cube at porosity 0.27. The prescribed principal correlation scales
+were $(7.0,4.2,2.3)$ voxels in a principal frame rotated by
+$(24^{\circ},37^{\circ},19^{\circ})$. Virtual sections had width 144 pixels.
+A pool of 20 oriented sections was generated, and 220 accepted full-rank
+subsets were retained for each section count from three to six.
+
+Figure~5 used $128^3$ spectral Gaussian random fields for the main robustness
+benchmark. Porosities $\phi=0.15$, 0.25, and 0.35 and prescribed anisotropy
+ratios $A=1.0$, 1.5, 2.0, 3.0, and 4.0 were considered. For every anisotropy
+setting, 12 independent Gaussian fields and independent random rotations in
+$\mathrm{SO}(3)$ were generated; the same continuous field realization was
+thresholded at each of the three porosities. A separate $160^3$ sensitivity
+benchmark at $\phi=0.25$ and $A=3.0$ used 10 independent realizations to test
+section widths, angular increments, and oblique interpolation.
+
+For the spectral experiments in Figs.~4 and 5, the controlled reference tensor
+was constructed directly from the prescribed principal scales and rotation and
+then determinant-normalized. It was not re-estimated from the complete binary
+volume.
+
+The fixed production seeds were
+\texttt{30} (Fig.~2), \texttt{41} (Fig.~3), \texttt{73} (Fig.~4), and
+\texttt{503} (Fig.~5).
+
+\subsection{Two-dimensional autocorrelation estimator}
+\label{sec:SI_acf2d}
+
+For every binary section, the mean pore fraction was first computed as
+
+\begin{equation}
+    \phi =
+    \frac{1}{N}
+    \sum_{\mathbf{x}}\chi(\mathbf{x}).
+\end{equation}
+
+The fluctuation field was
+
+\begin{equation}
+    f(\mathbf{x})=\chi(\mathbf{x})-\phi.
+\end{equation}
+
+The finite-domain autocovariance was evaluated by FFT-based convolution. To avoid bias associated with the decreasing number of overlapping pixel pairs at increasing displacement, the raw convolution was divided by an overlap-count field calculated from a binary support mask. In discrete form,
+
+\begin{equation}
+    \Gamma(\mathbf{r})
+    =
+    \frac{
+    \sum_{\mathbf{x}}
+    f(\mathbf{x})f(\mathbf{x}+\mathbf{r})
+    }{
+    N_{\mathrm{pairs}}(\mathbf{r})
+    }.
+\end{equation}
+
+The normalized two-dimensional autocorrelation was then
+
+\begin{equation}
+    C(\mathbf{r})
+    =
+    \frac{\Gamma(\mathbf{r})}{\Gamma(\mathbf{0})}.
+\end{equation}
+
+The implementation used
+\texttt{scipy.signal.fftconvolve} for the numerator and overlap fields.
+
+For a unit in-plane direction
+$\mathbf{u}(\theta)=(\cos\theta,\sin\theta)$,
+the correlation field was sampled along the ray
+
+\begin{equation}
+    \mathbf{r}=r\mathbf{u}(\theta).
+\end{equation}
+
+Off-grid samples were evaluated by linear interpolation using
+\texttt{scipy.ndimage.map\_coordinates}. Unless otherwise stated,
+$\theta$ was sampled over $0^\circ\leq\theta<180^\circ$ in increments of
+$5^\circ$.
+
+\subsection{Directional correlation length}
+\label{sec:SI_corr_length}
+
+A scalar characteristic length was extracted independently for each sampled direction. The directional correlation length
+$\ell(\mathbf{u})$ was defined as the first displacement at which the normalized correlation fell below $e^{-1}$:
+
+\begin{equation}
+    C(\mathbf{u},\ell)=e^{-1}.
+\end{equation}
+
+If the threshold occurred between two discrete lag values,
+the crossing position was estimated by linear interpolation.
+
+Only the first threshold crossing was used. Directions for which no
+$1/e$ crossing occurred within the prescribed maximum lag were recorded
+as unavailable rather than extrapolated beyond the observed correlation
+window.
+
+For the real-rock calculations,
+
+\begin{equation}
+    r_{\max}=48\ {\rm voxels}.
+\end{equation}
+
+At $2.25~\mu$m per voxel this corresponds to approximately
+$108~\mu$m.
+
+\subsection{Second-order correlation tensor}
+\label{sec:SI_tensor}
+
+The measured directional lengths were represented through the quadratic model
+
+\begin{equation}
+    \ell^{-2}(\mathbf{u})
+    =
+    \mathbf{u}^{\mathsf T}
+    \mathbf{Q}
+    \mathbf{u},
+    \label{eq:SI_tensor}
+\end{equation}
+
+where $\mathbf{Q}$ is symmetric and positive definite.
+
+In two dimensions,
+
+\begin{equation}
+    \mathbf{Q}_{2D}
+    =
+    \begin{bmatrix}
+    q_{11} & q_{12}\\
+    q_{12} & q_{22}
+    \end{bmatrix}.
+\end{equation}
+
+For a direction
+$\mathbf{u}=(u_1,u_2)$, each measurement provides the linear equation
+
+\begin{equation}
+    \ell^{-2}
+    =
+    q_{11}u_1^2
+    +
+    2q_{12}u_1u_2
+    +
+    q_{22}u_2^2.
+\end{equation}
+
+The tensor coefficients were estimated by ordinary least squares in
+$\ell^{-2}$ space.
+
+The same formulation extends directly to three dimensions. Writing
+
+\begin{equation}
+    \mathbf{Q}_{3D}
+    =
+    \begin{bmatrix}
+    q_{11} & q_{12} & q_{13}\\
+    q_{12} & q_{22} & q_{23}\\
+    q_{13} & q_{23} & q_{33}
+    \end{bmatrix},
+\end{equation}
+
+a unit direction
+$\mathbf{v}=(v_1,v_2,v_3)$ produces the design-matrix row
+
+\begin{equation}
+\mathbf{a}(\mathbf{v})
+=
+\left[
+v_1^2,\,
+v_2^2,\,
+v_3^2,\,
+2v_1v_2,\,
+2v_1v_3,\,
+2v_2v_3
+\right].
+\label{eq:SI_design_row}
+\end{equation}
+
+The unknown vector is
+
+\begin{equation}
+\mathbf{q}
+=
+\left[
+q_{11},q_{22},q_{33},q_{12},q_{13},q_{23}
+\right]^{\mathsf T}.
+\end{equation}
+
+Stacking all directional measurements gives
+
+\begin{equation}
+    \mathbf{A}\mathbf{q}=\mathbf{y},
+    \qquad
+    y_i=\ell_i^{-2}.
+    \label{eq:SI_linear_system}
+\end{equation}
+
+This formulation was also used to calculate the rank and singular-value
+condition number of the sparse reconstruction design.
+
+\subsection{Mapping directions from a section into three dimensions}
+\label{sec:SI_section_mapping}
+
+For section $s$, let
+
+\begin{equation}
+    \mathbf{B}_s=
+    \begin{bmatrix}
+    \mathbf{b}_{s,1} & \mathbf{b}_{s,2}
+    \end{bmatrix}
+\end{equation}
+
+contain the two orthonormal basis vectors spanning the section in the
+three-dimensional coordinate system.
+
+An in-plane direction $\mathbf{u}$ was mapped to the ambient direction
+
+\begin{equation}
+    \mathbf{v}=\mathbf{B}_s\mathbf{u}.
+\end{equation}
+
+Consequently,
+
+\begin{equation}
+    \ell^{-2}(\mathbf{u})
+    =
+    \mathbf{u}^{\mathsf T}
+    \mathbf{B}_s^{\mathsf T}
+    \mathbf{Q}_{3D}
+    \mathbf{B}_s
+    \mathbf{u}.
+\end{equation}
+
+All directional measurements from all included sections were mapped into
+the same ambient coordinate system before fitting
+$\mathbf{Q}_{3D}$.
+
+\subsection{Positive-definite projection}\label{sec:SI_spd}
+
+Least-squares fitting was performed without constraining the individual
+matrix coefficients during the linear solve. The resulting symmetric
+matrix was subsequently projected onto the cone of symmetric
+positive-definite matrices.
+
+For the eigendecomposition
+
+\begin{equation}
+    \mathbf{Q}
+    =
+    \mathbf{V}
+    \mathbf{\Lambda}
+    \mathbf{V}^{\mathsf T},
+\end{equation}
+
+non-positive numerical eigenvalues were replaced by a small positive
+floor before reconstructing $\mathbf{Q}$. This operation prevented
+non-physical negative squared inverse correlation lengths caused by
+finite-sampling fluctuations while leaving well-resolved positive
+eigenvalues unchanged.
+
+\subsection{Principal scales and anisotropy ratio}
+\label{sec:SI_principal}
+
+If $\lambda_i$ are the eigenvalues of $\mathbf{Q}$, the corresponding
+principal correlation lengths are
+
+\begin{equation}
+    \ell_i=\lambda_i^{-1/2}.
+\end{equation}
+
+They were ordered such that
+
+\begin{equation}
+    \ell_1\geq\ell_2\geq\ell_3.
+\end{equation}
+
+The scalar anisotropy ratio reported throughout the work was
+
+\begin{equation}
+    A=
+    \frac{\ell_{\max}}{\ell_{\min}}
+    =
+    \frac{\ell_1}{\ell_3}.
+    \label{eq:SI_A}
+\end{equation}
+
+Thus $A=1$ corresponds to an isotropic quadratic correlation response,
+while increasing values indicate increasing separation between the
+largest and smallest principal correlation scales.
+
+\subsection{Determinant normalization and tensor-shape error}
+\label{sec:SI_error}
+
+Because absolute correlation scale and tensor shape are distinct
+quantities, tensor comparisons were performed after determinant
+normalization:
+
+\begin{equation}
+    \widetilde{\mathbf{Q}}
+    =
+    \frac{\mathbf{Q}}
+    {\det(\mathbf{Q})^{1/3}}.
+    \label{eq:SI_detnorm}
+\end{equation}
+
+The tensor-shape reconstruction error was
+
+\begin{equation}
+    E_Q
+    =
+    \frac{
+    \left\|
+    \widetilde{\mathbf{Q}}_{\mathrm{sparse}}
+    -
+    \widetilde{\mathbf{Q}}_{\mathrm{ref}}
+    \right\|_F
+    }{
+    \left\|
+    \widetilde{\mathbf{Q}}_{\mathrm{ref}}
+    \right\|_F
+    },
+    \label{eq:SI_EQ}
+\end{equation}
+
+where $\|\cdot\|_F$ denotes the Frobenius norm.
+
+The geometric mean correlation scale was calculated as
+
+\begin{equation}
+    \ell_{\mathrm{geom}}
+    =
+    \det(\mathbf{Q})^{-1/6}.
+\end{equation}
+
+This separation allowed changes in tensor shape to be evaluated
+independently of a uniform change in correlation length.
+
+\subsection{Tensor-model residual}
+\label{sec:SI_residual}
+
+The directional residual of the fitted tensor was quantified as
+
+\begin{equation}
+    \eta_Q
+    =
+    \sqrt{
+    \frac{
+    \sum_i
+    \left[
+    \ell_i-
+    \ell_{\mathbf{Q}}(\mathbf{v}_i)
+    \right]^2
+    }{
+    \sum_i \ell_i^2
+    }},
+\end{equation}
+
+where
+
+\begin{equation}
+    \ell_{\mathbf{Q}}(\mathbf{v})
+    =
+    \left(
+    \mathbf{v}^{\mathsf T}
+    \mathbf{Q}
+    \mathbf{v}
+    \right)^{-1/2}.
+\end{equation}
+
+$E_Q$ and $\eta_Q$ measure different effects. $E_Q$ measures disagreement
+between a sparse reconstruction and the full-volume reference tensor,
+whereas $\eta_Q$ measures the inability of a single quadratic tensor to
+represent all directional correlation-length observations used in a fit.
+
+\subsection{Principal-direction error}
+\label{sec:SI_orientation}
+
+Principal directions are axial rather than polar: $\mathbf{v}$ and
+$-\mathbf{v}$ represent the same structural axis. The angular error
+between corresponding eigenvectors was therefore calculated as
+
+\begin{equation}
+    \Delta\theta
+    =
+    \cos^{-1}
+    \left(
+    \left|
+    \mathbf{v}_{\mathrm{est}}
+    \cdot
+    \mathbf{v}_{\mathrm{ref}}
+    \right|
+    \right).
+\end{equation}
+
+Orientation error was interpreted only when the associated eigenvalues
+were sufficiently separated. For the real-rock analysis, the major-axis
+orientation was considered reliable when
+
+\begin{equation}
+    g=
+    \frac{\ell_1-\ell_2}{\ell_1}
+    \geq 0.10.
+\end{equation}
+
+This criterion avoids assigning physical significance to eigenvector
+angles in nearly degenerate, approximately isotropic tensors.
+
+\section{Three-dimensional reference estimator}
+\label{sec:SI_reference}
+
+\subsection{Directional sampling}
+\label{sec:SI_reference_directions}
+
+The full-volume reference tensor was calculated without evaluating a
+three-dimensional FFT. Instead, directional correlations were estimated
+directly by Monte Carlo sampling within each $512^3$ binary subvolume.
+
+A set of 64 approximately uniform directions was generated on a
+hemisphere using a Fibonacci construction. The three Cartesian axes were
+then appended, giving
+
+\begin{equation}
+    N_{\mathrm{dir}}=67.
+\end{equation}
+
+Because the correlation statistic is axial, antipodal directions are
+equivalent and sampling an entire sphere is unnecessary.
+
+For each direction, random base points were drawn from the interior of
+the subvolume with a margin larger than the maximum lag. The pore
+indicator was evaluated at the base point and at displaced coordinates
+
+\begin{equation}
+    \mathbf{x}_r
+    =
+    \mathbf{x}_0+r\mathbf{v}.
+\end{equation}
+
+Values at non-integer coordinates were obtained by trilinear
+interpolation using \texttt{scipy.ndimage.map\_coordinates}.
+
+For the final reference protocol,
+
+\begin{equation}
+    N_{\mathrm{points}}=50\,000
+\end{equation}
+
+base points were used per direction and per random seed, with
+
+\begin{equation}
+    N_{\mathrm{seeds}}=5.
+\end{equation}
+
+The five seed-specific tensors were combined through the arithmetic
+mean in $\mathbf{Q}$ space followed by SPD projection:
+
+\begin{equation}
+    \mathbf{Q}^{\mathrm{REF}}_{3D}
+    =
+    \mathrm{SPD}
+    \left(
+    \frac{1}{5}
+    \sum_{s=1}^{5}
+    \mathbf{Q}^{(s)}
+    \right).
+    \label{eq:SI_consensus}
+\end{equation}
+
+The notation
+$\mathbf{Q}^{\mathrm{REF}}_{3D}$ is used rather than ``ground truth''
+because this tensor remains a numerical estimate of the directional
+correlation structure of the finite subvolume.
+
+\subsection{Reference-estimator convergence}
+\label{sec:SI_reference_convergence}
+
+The numerical precision of the three-dimensional reference estimator was
+calibrated before the final spatial-replication study. Five Bentheimer
+subvolumes spanning different preliminary anisotropy levels were used.
+For each subvolume, ten independent Monte Carlo seeds were evaluated
+using nested point counts
+
+\begin{equation}
+N_{\mathrm{points}}
+=
+3000,\,
+6000,\,
+12000,\,
+25000,\,
+50000.
+\end{equation}
+
+Within one seed, the smaller point-count estimates were prefixes of the
+same 50,000-point sample, thereby isolating convergence with sample size
+from differences caused solely by independent random draws.
+
+At 50,000 points per direction, the single-seed leave-one-out
+determinant-normalized shape error had a pooled median of approximately
+$2.45\%$ and a 95th percentile of approximately $3.85\%$. The
+directional tensor-fit residual simultaneously decreased to a median of
+approximately $1.04\%$, demonstrating that a substantial component of
+the apparent residual observed at lower point counts was Monte Carlo
+noise rather than systematic failure of the quadratic tensor model.
+
+\subsection{Consensus-size calibration}
+\label{sec:SI_consensus}
+
+The number of independent 50,000-point estimates required for the final
+reference was evaluated using the cached tensors from the convergence
+experiment; no additional correlation sampling was required.
+
+Consensus sizes
+
+\begin{equation}
+    m=1,2,3,5,7,10
+\end{equation}
+
+were investigated. For each $m$, bootstrap consensus tensors were
+constructed by sampling the ten independent seed-specific tensors with
+replacement. Independent pairs of bootstrap consensuses were compared
+using the determinant-normalized tensor disagreement.
+
+The approximate single-consensus uncertainty proxy was defined as
+
+\begin{equation}
+    U_{\mathrm{pair}}
+    =
+    \frac{
+    D(\mathbf{Q}_a,\mathbf{Q}_b)
+    }{\sqrt{2}},
+\end{equation}
+
+under the small-error, equal-variance approximation.
+
+Three thousand bootstrap pairs were generated for every combination of
+subvolume and consensus size. The smallest consensus satisfying both
+
+\begin{equation}
+    p_{95}^{\mathrm{pooled}}\leq2\%
+\end{equation}
+
+and
+
+\begin{equation}
+    p_{95}^{\mathrm{worst\ subvolume}}\leq3\%
+\end{equation}
+
+was $m=5$. At this consensus size,
+
+\begin{equation}
+    \mathrm{median}(U_{\mathrm{pair}})
+    \approx0.932\%,
+\end{equation}
+
+\begin{equation}
+    p_{95}^{\mathrm{pooled}}
+    \approx1.706\%,
+\end{equation}
+
+and
+
+\begin{equation}
+    p_{95}^{\mathrm{worst}}
+    \approx1.881\%.
+\end{equation}
+
+The numerical reference protocol was therefore frozen at
+67 directions, 50,000 points per direction, and five independent seeds
+before the final real-rock validation.
+
+Importantly, the $1.706\%$ value is an empirical calibration of the
+reference protocol performed on Bentheimer and is not assumed to be a
+universal lithology-independent uncertainty bound.
+
+\section{Real-rock spatial validation}
+\label{sec:SI_real_validation}
+
+\subsection{Subvolume design}
+\label{sec:SI_subvolume}
+
+Each $2500^3$ ROI was sampled using 27 non-overlapping subvolumes of
+size
+
+\begin{equation}
+    512^3\ {\rm voxels}.
+\end{equation}
+
+The center coordinates along each computational array axis were
+
+\begin{equation}
+    c\in\{384,\;1250,\;2116\},
+\end{equation}
+
+giving the Cartesian product of these coordinates and hence a
+$3\times3\times3$ spatial grid.
+
+The corresponding intervals do not overlap. For example, a subvolume
+centered at coordinate $384$ spans indices $128$--$639$, while a
+subvolume centered at $1250$ spans $994$--$1505$.
+
+The computational axes were denoted $a_0$, $a_1$, and $a_2$. They were
+not assigned geological labels unless their physical correspondence to
+the plug axes was independently established from acquisition metadata.
+
+\subsection{Pool of planar sections}
+\label{sec:SI_section_pool}
+
+Three mutually orthogonal section families were considered:
+
+\begin{equation}
+    a_0-a_1,\qquad
+    a_0-a_2,\qquad
+    a_1-a_2.
+\end{equation}
+
+For every family, 13 possible offsets relative to the center of the
+$512^3$ subvolume were precomputed:
+
+\begin{equation}
+\{-192,-160,-128,-96,-64,-32,0,
+32,64,96,128,160,192\}
+\ {\rm voxels}.
+\end{equation}
+
+This generated
+
+\begin{equation}
+    3\times13=39
+\end{equation}
+
+candidate section measurements per subvolume.
+
+The complete directional correlation response of each candidate section
+was calculated once and cached. Subsequent section-resampling
+experiments therefore operated on identical precomputed measurements,
+ensuring that differences among sparse configurations resulted only
+from the selected section positions.
+
+\subsection{Sparse-section configurations}
+\label{sec:SI_sparse_configs}
+
+The number of sections selected from each orientation family was
+
+\begin{equation}
+    n=1,3,5,7,
+\end{equation}
+
+corresponding to total section counts
+
+\begin{equation}
+    N_{\mathrm{sec}}=3,9,15,21.
+\end{equation}
+
+For each $n$, 200 independent random position configurations were
+generated. Within each orientation family, $n$ offsets were sampled
+without replacement from the 13-position pool.
+
+Thus, for every rock, the final random-resampling analysis comprised
+
+\begin{equation}
+    27\times4\times200
+    =
+    21\,600
+\end{equation}
+
+sparse tensor reconstructions.
+
+The primary statistics reported in the main text were first calculated
+within each subvolume across the 200 position configurations and were
+then summarized across the 27 spatial subvolumes. This hierarchy
+prevents the 21,600 sparse configurations from being incorrectly treated
+as independent geological replicates.
+
+The 27 subvolumes themselves are spatial replicates within a single ROI
+and likewise must not be interpreted as 27 independent rock specimens.
+
+\subsection{Representativity metric}
+\label{sec:SI_representativity}
+
+In addition to tensor error, section representativity was monitored
+using the deviation of the sampled section porosities from the
+three-dimensional subvolume porosity.
+
+For each orientation family $f$, the mean porosity of the selected
+sections was calculated as $\bar{\phi}_f$. The family-level mismatch was
+
+\begin{equation}
+    E_{\phi}
+    =
+    \sqrt{
+    \frac{1}{3}
+    \sum_{f=1}^{3}
+    \left(
+    \bar{\phi}_f-\phi_{3D}
+    \right)^2
+    }.
+\end{equation}
+
+This metric was used as a diagnostic of spatial representativity rather
+than as part of the tensor inversion.
+
+\subsection{Handling non-identifiable configurations}
+\label{sec:SI_rankfailure}
+
+A sparse configuration was considered identifiable only when the
+observed directional design matrix had
+
+\begin{equation}
+    \mathrm{rank}(\mathbf{A})=6.
+\end{equation}
+
+This distinction is important because a nominally correct three-plane
+geometry can lose rank if one selected section contains too few finite
+$1/e$ correlation-length crossings within the imposed lag window.
+
+When such a configuration occurred, no pseudoinverse tensor was
+reported and no replacement configuration was silently resampled.
+Instead, the draw was retained and marked as non-identifiable.
+$E_Q$ summary statistics were calculated conditionally on rank-six
+configurations, and the rank-six fraction was reported independently.
+
+This issue was rare in the minimally replicated Edwards Brown
+configurations and disappeared once additional sections per orientation
+were included. It provides a practical distinction between nominal
+geometric observability and effective observability of the measured
+directional data.
+
+\section{Computational scripts}
+\label{sec:SI_scripts}
+
+Table~\ref{tab:SI_scripts} summarizes the principal scripts used during
+method development, calibration, and final validation. Exploratory
+scripts are included because they define the sequence by which the final
+protocol was established, although only the frozen final-validation
+scripts are required to reproduce the main real-rock results.
+
+\small
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.36\textwidth} >{\raggedright\arraybackslash}p{0.56\textwidth}}
+\caption{\textbf{Principal computational scripts used in the study.}
+The final repository should preserve the scripts together with their
+fixed random seeds and generated CSV outputs.}
+\label{tab:SI_scripts}\\
+\hline
+\textbf{Script} & \textbf{Purpose} \\
+\hline
+\endfirsthead
+
+\multicolumn{2}{l}{\small\itshape Table~\ref{tab:SI_scripts} continued.}\\
+\hline
+\textbf{Script} & \textbf{Purpose} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{2}{r}{\small Continued on next page.}\\
+\endfoot
+
+\hline
+\endlastfoot
+
+\path{figure1.py}
+&
+Conceptual implementation of directional section extraction,
+overlap-normalized autocorrelation, $1/e$ correlation-length
+measurement, two-dimensional tensor fitting, and graphical illustration
+of the framework used in Fig.~1.
+\\
+
+\path{figure2.py}
+&
+Synthetic test of in-plane anisotropy detectability, including isotropic
+controls and planes that either contain or exclude the imposed
+anisotropic direction; generates the data underlying Fig.~2.
+\\
+
+\path{figure3.py}
+&
+Blind principal-orientation recovery and tensor rotation-equivariance
+experiment. Includes the ensemble orientation-error analysis used in
+Fig.~3.
+\\
+
+\path{figure4.py}
+&
+Synthetic three-dimensional sparse inversion, rank analysis, singular
+values, condition number, section-subset tests, tensor-shape error, and
+principal-axis recovery used in Fig.~4.
+\\
+
+\path{figure5.py}
+&
+Synthetic robustness study covering porosity, prescribed anisotropy,
+finite two-dimensional field of view, directional angular increment, and
+oblique-section interpolation used in Fig.~5.
+\\
+
+\path{download_real_rocks.py}
+&
+Queries the Figshare API, identifies the requested binary ROI,
+downloads and extracts the archive, validates the byte count, and
+samples the binary values.
+\\
+
+\path{check_real_rock.py}
+&
+Initial raw-file inspection for dimensions, binary values, and phase
+convention before the first Bentheimer calculations.
+\\
+
+\path{real_bentheimer_test1.py}
+&
+Initial comparison between one central sparse three-plane reconstruction
+and a Monte Carlo full-three-dimensional reference tensor.
+\\
+
+\path{real_bentheimer_test2.py}
+&
+Parallel-section replication study within the central Bentheimer
+subvolume; introduced the 13-offset pool and random section-position
+resampling.
+\\
+
+\path{real_bentheimer_test3.py}
+&
+Spatial replication experiment over 27 non-overlapping $512^3$
+Bentheimer subvolumes using the preliminary reference estimator.
+\\
+
+\path{real_bentheimer_test4_reference_convergence.py}
+&
+Reference-estimator convergence study using five representative
+subvolumes, 10 independent seeds, and nested sample counts from 3,000 to
+50,000 points per direction.
+\\
+
+\path{real_bentheimer_test5_consensus_convergence.py}
+&
+Consensus-size analysis using cached 50,000-point seed tensors.
+Bootstrap-pair disagreement was used to select the final five-seed
+reference protocol.
+\\
+
+\path{real_bentheimer_final_validation.py}
+&
+Final Bentheimer production validation using the frozen
+67-direction, 50,000-point, five-seed reference protocol and
+200 random sparse-section configurations per section count.
+\\
+
+\path{real_edb1_final_validation.py}
+&
+Final Edwards Brown validation using the same frozen protocol.
+Includes explicit handling and reporting of rank-deficient sparse
+configurations.
+\\
+
+\path{figure6.py}
+&
+Lightweight final comparison renderer. Reads the frozen Bentheimer and
+Edwards Brown validation tables and representative RAW slices; it does not
+repeat the computationally expensive 3D reference calculations.
+\\
+\end{longtable}
+\normalsize
+
+\subsection{Final real-rock output files}
+\label{sec:SI_outputs}
+
+For each real rock, the production scripts generated independent
+machine-readable output tables. The principal outputs were
+
+\begin{verbatim}
+*_final_subvolumes.csv
+*_final_summary.csv
+*_final_random.csv
+*_final_systematic.csv
+*_final_reference_seeds.csv
+\end{verbatim}
+
+The \texttt{final\_subvolumes} file contains one record per
+three-dimensional analysis region, including porosity,
+$\mathbf{Q}^{\mathrm{REF}}$, $A_{\mathrm{ref}}$, principal spectral gap,
+and reference diagnostics.
+
+The \texttt{final\_summary} file contains the subvolume-level summary for
+each number of sections.
+
+The \texttt{final\_random} file retains every individual random
+section-position configuration and therefore provides the most detailed
+record for reproducing the distributions displayed in the figures.
+
+The \texttt{final\_reference\_seeds} file stores each independent
+50,000-point three-dimensional reference estimate before the five-seed
+consensus is formed.
+
+Figure~6 was generated from the final, frozen validation outputs of the
+two lithologies rather than from preliminary calibration runs.
+
+\section{Caching and restartability}
+\label{sec:SI_cache}
+
+The three-dimensional Monte Carlo reference calculation is the most
+computationally expensive part of the workflow. To avoid unnecessary
+recomputation, the production scripts separately cache
+
+\begin{enumerate}
+    \item each seed-specific three-dimensional reference tensor;
+    \item the 39 precomputed planar section measurements for each
+          subvolume;
+    \item the completed sparse resampling results.
+\end{enumerate}
+
+Cached results are reused only when their stored calculation signature
+matches the active parameters. The signature includes the subvolume
+size, maximum lag, number of reference directions, number of Monte Carlo
+points, section-angle increment, and related estimator parameters.
+
+The default final-validation settings were
+
+\begin{verbatim}
+FORCE_RECOMPUTE_REFERENCES = False
+FORCE_RECOMPUTE_SECTIONS   = False
+FORCE_RECOMPUTE_RESULTS    = False
+\end{verbatim}
+
+so that interrupted calculations could be restarted safely.
+
+\section{Software implementation}
+\label{sec:SI_software}
+
+The workflow was implemented in Python and relies primarily on
+\texttt{NumPy}, \texttt{SciPy}, and \texttt{Matplotlib}. The principal
+library operations were
+
+\begin{itemize}
+    \item \texttt{numpy.linalg.eigh} for symmetric eigendecomposition;
+    \item \texttt{numpy.linalg.lstsq} for tensor least-squares fitting;
+    \item \texttt{numpy.linalg.svd} for singular values and conditioning;
+    \item \texttt{scipy.signal.fftconvolve} for two-dimensional
+          finite-domain autocorrelation;
+    \item \texttt{scipy.ndimage.map\_coordinates} for directional and
+          oblique interpolation;
+    \item \texttt{matplotlib} for all publication figures.
+\end{itemize}
+
+Publication figures were exported at 800~dpi in PNG format and also in
+SVG format with text retained as editable text. DejaVu Sans was used as
+the common plotting font.
+
+The September 2026 clean-environment reproduction audit was performed
+with Python 3.12.3, NumPy 2.3.2, SciPy 1.16.0, and Matplotlib 3.10.3.
+These versions are recorded in the repository environment file together
+with the package metadata used by continuous integration. The reusable
+package is additionally tested under Python 3.10, 3.11, and 3.12.
+
+No GPU-specific library is required for the tensor reconstruction
+workflow.
+
+\section{Reproducibility sequence}
+\label{sec:SI_sequence}
+
+A complete reproduction of the study can be organized in the following
+order:
+
+\begin{enumerate}
+    \item run the synthetic scripts associated with Figs.~1--5 using the
+          fixed random seeds supplied in each script;
+    \item query and download the Bentheimer and EdB-1 binary ROI-1 files
+          using \texttt{download\_real\_rocks.py};
+    \item validate file dimensions, binary values, and phase convention;
+    \item reproduce the three-dimensional reference-convergence study;
+    \item reproduce the consensus-size analysis and freeze the
+          50,000-point, five-seed reference protocol;
+    \item execute the final Bentheimer validation;
+    \item execute the final Edwards Brown validation using the same
+          numerical protocol without lithology-specific retuning;
+    \item construct the real-rock comparison from the final CSV outputs.
+\end{enumerate}
+
+The calibration stages should not be repeated independently for each
+lithology when reproducing the results of this article, because the
+central external-validation design deliberately transfers the frozen
+protocol established with Bentheimer to Edwards Brown.
+
+\section{Statistical interpretation}
+\label{sec:SI_statistics}
+
+The random section-position configurations are resampling experiments
+performed within a fixed three-dimensional subvolume. They quantify the
+sensitivity of the tensor reconstruction to where the planar sections
+are acquired. They are not independent geological samples.
+
+Likewise, the 27 non-overlapping subvolumes provide spatial replication
+within one ROI for each lithology but do not constitute 27 independent
+rock specimens. Accordingly, the distributions and success fractions
+reported in this work are descriptive of spatial variability within the
+analyzed ROIs and are not interpreted as population-level confidence
+intervals for Bentheimer sandstone or Edwards Brown carbonate in
+general.
+
+Bootstrap calculations used during numerical reference calibration are
+similarly interpreted as numerical precision diagnostics rather than
+physical replication of the rock.
+
+\section{Data and code availability}
+\label{sec:SI_availability}
+
+The source micro-CT images are publicly available from Ferreira
+et al.~\cite{Ferreira2023} through Figshare+:
+
+\begin{quote}
+DOI: \texttt{10.25452/figshare.plus.21375565}.
+\end{quote}
+
+For full reproducibility, the code repository accompanying this article
+should contain the Python scripts listed in
+Table~\ref{tab:SI_scripts}, the fixed random seeds used in the synthetic
+experiments, the final CSV tables, and a machine-readable description
+of the Python environment.
+
+Because the original binary tomographic volumes are already publicly
+archived, redistribution of the approximately 15.6-GB uncompressed RAW
+files is unnecessary. The repository should instead provide their exact
+Figshare filenames and file identifiers together with the automated
+download script.
+
+The final numerical result tables are substantially smaller than the raw
+images and can be archived directly with the article or in a permanent
+code/data repository. Retaining the full configuration-level
+\texttt{final\_random.csv} files is particularly important because these
+tables permit independent reconstruction of the reported medians,
+interquartile ranges, success fractions, and section-position
+sensitivity without rerunning the computationally expensive
+three-dimensional reference calculations.
+
+
+\bibliographystyle{unsrt}\bibliography{bibliography_revised}
+\end{document}

@@ -10,6 +10,50 @@ The purpose is not to rewrite provenance after the fact. A manuscript statement 
 - **PARTIAL** - the scientific statement is broadly supported, but implementation details differ or an explicit artifact is missing.
 - **UNSUPPORTED BY ARCHIVED CODE** - no recovered script/result currently substantiates the stated numerical protocol. This does not prove the calculation was never performed; it means it should not be claimed as reproducible until the missing artifact is supplied.
 
+## Main Methods audit (Sections 3.2-3.17)
+
+The main Methods contains several statements that describe a broader or earlier workflow than the final archived production code. The Supplement and Results are substantially closer to the final real-rock implementation.
+
+| Manuscript section | Claim | Archived implementation evidence | Status |
+|---|---|---|---|
+| 3.2 | pore indicator is 1 for pore | synthetic code uses True/1 for the generated pore phase; real RAW storage is 0=pore but scripts explicitly convert `phase==0` to the pore indicator | **SUPPORTED with storage-convention caveat** |
+| 3.3 | overlap-corrected autocorrelation and directional interpolation | 2D scripts use FFT convolution with explicit valid-pair counts and interpolation | **SUPPORTED for 2D** |
+| 3.3 | full-volume 3D autocorrelation evaluated by zero-padded FFT | final real-rock reference uses directional Monte Carlo sampling with trilinear off-lattice interpolation; final Fig. 4/5 use prescribed generator tensors as reference | **NOT THE FINAL PRODUCTION IMPLEMENTATION** |
+| 3.4 | first 1/e crossing with linear interpolation | implemented throughout final scripts | **SUPPORTED** |
+| 3.4 | robustness repeated with alternative thresholds and integral correlation scale | no recovered Python artifact implements these sensitivity experiments | **UNSUPPORTED BY ARCHIVED CODE** |
+| 3.4 | real lengths converted to physical units before tensor fitting | final real-rock fitting is carried out in voxel units; voxel size is used for physical scale/display. Shape/anisotropy metrics are scale invariant | **UNSUPPORTED AS WORDED** |
+| 3.5 / 3.8 | weighted least squares with positive-definiteness constraint | production code uses unweighted `np.linalg.lstsq` followed by eigenvalue flooring / SPD projection | **PARTIAL - same linear model, different numerical estimator** |
+| 3.6 | non-tensorial residual eta | final scripts compute the same relative residual form with unit weights | **SUPPORTED with unit weights** |
+| 3.7 | section restriction `Q_s = B_s^T Q_3 B_s` | exact basis of all final inversion scripts and reusable package | **SUPPORTED** |
+| 3.8 | simultaneous use of directional observations to recover six tensor components | implemented directly in Fig. 4/5 and real-rock validation | **SUPPORTED** |
+| 3.9 | rank hierarchy one/two/three sections = 3/5/6 | reproduced exactly | **SUPPORTED** |
+| 3.9 | >3 section orientations selected by maximizing smallest singular value | no recovered implementation of this optimization was found; production benchmarks use fixed orthogonal/oblique bases or random subsets/offsets | **UNSUPPORTED BY ARCHIVED CODE** |
+| 3.10 | moving-block bootstrap with 500 resamples per section generates directional weights and CIs | no moving-block bootstrap or `NB=500` implementation was found in the recovered code | **UNSUPPORTED BY ARCHIVED CODE** |
+| 3.11 | 256^3, 50 realizations/combination, 512^3 repeat | not present in recovered production scripts; see synthetic audit below | **UNSUPPORTED BY ARCHIVED CODE** |
+| 3.11 | every synthetic volume uses a measured full-volume tensor from 3D FFT as ground truth | Fig. 4/5 construct `Q_true` directly from prescribed principal scales and rotations and determinant-normalize it | **UNSUPPORTED AS WORDED** |
+| 3.12 | rotation-equivariance test | Fig. 3 directly tests rotation equivariance and reproduces the reported 3.29% median | **SUPPORTED** |
+| 3.12 | equivariance repeated with both nearest-neighbor and trilinear section sampling | interpolation order is compared in the separate Fig. 5 oblique-section sensitivity, not in the Fig. 3 equivariance experiment | **PARTIAL** |
+| 3.13 | validation on Bentheimer, Doddington, Estaillades, Ketton 1000^3 Imperial College volumes | no such rock names occur in recovered code; final study uses Bentheimer + Edwards Brown from Ferreira et al. / Figshare+, 2500^3 ROI-1 | **STALE / CONTRADICTS FINAL STUDY** |
+| 3.14 | tensor error in Eq. 36 uses raw `Q` difference | final scripts use determinant-normalized tensor-shape error; Results/Fig. 6 also explicitly call it determinant-normalized | **NEEDS EQUATION UPDATE** |
+| 3.15 | FOV, section count/geometry, offsets, angular sampling, interpolation sensitivities | these components are represented across Figs. 4-6 | **SUPPORTED** |
+| 3.15 | voxel-resolution study, alternative correlation threshold, and real-rock segmentation erosion/dilation | no corresponding recovered production artifacts were found | **UNSUPPORTED BY ARCHIVED CODE** |
+| 3.16 | synthetic results use median/IQR | Fig. 5 uses median/IQR; Fig. 4 uses distributions/boxplots | **SUPPORTED** |
+| 3.16 | synthetic bootstrap 95% confidence intervals | no final synthetic bootstrap-CI implementation was found | **UNSUPPORTED BY ARCHIVED CODE** |
+| 3.17 | final implementation uses NumPy/SciPy | confirmed by scripts and audited environment | **SUPPORTED** |
+| 3.17 | independent PoreSpy benchmark | exploratory PoreSpy scripts exist under the local `etapa1/` workspace, but no final frozen result artifact links them to the production figures | **PARTIAL** |
+| 3.17 | all seeds/origins/orientations/parameters stored for every realization | seeds and fixed parameters are preserved; some final CSVs do not store every generated orientation/subset explicitly, although deterministic RNG allows regeneration | **PARTIAL** |
+
+### High-priority manuscript fixes
+
+Before submission, the most important consistency fixes are:
+
+1. replace the stale Sec. 3.13 four-rock Imperial College protocol with the actual Ferreira et al. Bentheimer/Edwards Brown protocol;
+2. reconcile Sec. 3.11 with the actual Figure 2-5 executable settings or supply the missing 256^3/50-realization/512^3 artifacts;
+3. revise Eq. 36 to the determinant-normalized tensor-shape error actually used;
+4. remove or substantiate the moving-block bootstrap / 500-resample weighting claim;
+5. remove or substantiate unexecuted sensitivity claims (alternative correlation thresholds, integral scale, segmentation erosion/dilation, 512^3 synthetic repeat);
+6. distinguish the real-rock Monte Carlo 3D reference estimator from any FFT-based synthetic calculation.
+
 ## Figures 2-5: executable synthetic settings
 
 | Item | Manuscript / caption | Recovered production script | Status |

@@ -15,7 +15,7 @@ The historical scripts are provenance records. Avoid cleanup edits that would ma
 These are the recovered real-rock development and production scripts:
 
 - `check_real_rock.py`: initial RAW inspection and phase-convention checks.
-- `real_bentheimer_test1.py` -- `real_bentheimer_test5.py`: calibration/development sequence.
+- `real_bentheimer_test1.py` -- `real_bentheimer_test3.py`: early development sequence.\n- `real_bentheimer_test4_reference_convergence.py`: reference-estimator convergence.\n- `real_bentheimer_test5_consensus_convergence.py`: five-seed consensus calibration.
 - `real_bentheimer_final_validation.py`: frozen Bentheimer production protocol.
 - `real_edb1_final_validation.py`: Edwards Brown production validation using the frozen protocol.
 

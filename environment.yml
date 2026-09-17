@@ -1,0 +1,16 @@
+name: sparse-section-anisotropy-manuscript
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - numpy==2.3.2
+      - scipy==1.16.0
+      - matplotlib==3.10.3
+      - pytest>=7.4
+
+# Captured from the workstation used for the September 2026
+# Figure 1-6 reproduction audit. PoreSpy is intentionally not pinned
+# here because it is not required by the final Figure 1-6 production
+# scripts and was not installed in the audited runtime.

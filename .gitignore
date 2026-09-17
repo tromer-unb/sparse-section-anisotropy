@@ -216,3 +216,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Project-specific large data and generated artifacts
+data/raw/
+data/real_rocks/
+outputs/
+*.raw
+*.raw.tar.bz2
+*.tar.bz2
+*.npy
+
+# Heavy restart caches from real-rock validation
+**/*_cache/
+**/cache/
+
+# Local scratch / downloaded metadata copies
+scratch/
+tmp/

@@ -1,14 +1,8 @@
 # Manuscript revision audit
 
-Source preserved unchanged:
-- `main.tex`
-- `bibliography.bib`
+This directory contains the author-approved, code-aligned manuscript snapshot produced during the September 2026 reproducibility audit.
 
-Review copies:
-- `main_revised.tex`
-- `bibliography_revised.bib`
-- `main_revised.pdf`
-- `manuscript_revision.diff`
+The original author-side `main.tex` and `bibliography.bib` were preserved unchanged on the workstation during the revision process. In this repository, `manuscript/main.tex` and `manuscript/bibliography.bib` are the revised, publication-facing copies.
 
 ## Scientific corrections
 
@@ -35,25 +29,17 @@ The revised manuscript was aligned to the archived production scripts and frozen
 - Added `figure6.py` to the computational-script inventory.
 - Recorded the clean-environment reproduction versions used in September 2026.
 - Converted Table S1 to a multipage `longtable` and enabled breakable path formatting for long script names.
+
 ## Bibliography repair
 
-The original bibliography contained four duplicate keys:
-`Jiao2007`, `Inglis2003`, `Cowin2004`, and `AlRaoush2010`.
+The exported bibliography contained four duplicate keys: `Jiao2007`, `Inglis2003`, `Cowin2004`, and `AlRaoush2010`. It also contained trailing orphaned field blocks duplicating already valid entries for `Singh2020`, `Zubov2024`, and `Ferreira2023`.
 
-It also contained trailing orphaned field blocks duplicating already valid entries for `Singh2020`, `Zubov2024`, and `Ferreira2023`.
+The repository bibliography preserves one valid copy of each entry and removes only those duplicate/orphaned blocks.
 
-`bibliography_revised.bib` preserves one valid copy of each entry and removes only the duplicate/orphaned blocks. The original `bibliography.bib` is unchanged.
+## Build and quantitative validation
 
-## Build validation
+The author-side Overleaf bundle completed `pdflatex -> bibtex -> pdflatex -> pdflatex` with no LaTeX compilation errors, no BibTeX errors/warnings, no undefined citations, and no undefined internal references.
 
-Full build sequence:
-`pdflatex -> bibtex -> pdflatex -> pdflatex`
-
-Result:
-- no LaTeX compilation errors;
-- no BibTeX errors or warnings;
-- no undefined citations;
-- no undefined internal references;
-- Table S1 no longer exceeds the page as a single float.
+A final Results-to-CSV audit also confirmed the reported real-rock summary values, including Bentheimer `18.003% -> 6.320%`, Edwards Brown `38.843% -> 16.938%`, the position-IQR values, the anisotropy differences, the orientation-reliability counts, and the Bentheimer 15-section `E_Q <= 10%` success fraction (25/27 = 92.6%, reported as 93%).
 
 The remaining overfull-box warnings are typographic and do not indicate broken references or scientific-content errors.
